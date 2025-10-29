@@ -6,3 +6,4 @@ data/
 *.csv
 package-lock.json
 .env
+.port
