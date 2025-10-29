@@ -81,7 +81,7 @@ GET /api/users/api?size=10
 
 ### POST `/api/users/save`
 
-Salva usuários no arquivo CSV.
+Salva usuários no SQLite e CSV simultaneamente.
 
 **Body:**
 ```json
@@ -111,7 +111,7 @@ Content-Type: application/json
 ```json
 {
   "success": true,
-  "message": "10 usuário(s) salvo(s) com sucesso"
+  "message": "10 usuário(s) salvo(s) com sucesso em SQLite e CSV"
 }
 ```
 
@@ -127,7 +127,7 @@ Content-Type: application/json
 
 ### GET `/api/users`
 
-Lista todos os usuários salvos no CSV.
+Lista todos os usuários salvos (prioriza busca no SQLite, com fallback para CSV).
 
 **Exemplo de Requisição:**
 ```bash
@@ -147,7 +147,7 @@ GET /api/users
 
 ### GET `/api/users/search`
 
-Busca usuários por critérios de pesquisa.
+Busca usuários por critérios de pesquisa (prioriza SQLite, com fallback para CSV).
 
 **Query Parameters:**
 | Parâmetro | Tipo | Obrigatório | Descrição |
@@ -250,7 +250,7 @@ Content-Type: application/json
 
 ### DELETE `/api/users/:id`
 
-Remove um usuário do CSV.
+Remove um usuário do SQLite e CSV.
 
 **Exemplo de Requisição:**
 ```bash
@@ -283,6 +283,7 @@ DELETE /api/users/1
 | 400 | Requisição inválida |
 | 404 | Recurso não encontrado |
 | 500 | Erro interno do servidor |
+| 503 | Serviço externo indisponível (API externa) |
 
 ## Modelo de Usuário
 
