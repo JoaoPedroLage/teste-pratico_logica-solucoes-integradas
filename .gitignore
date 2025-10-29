@@ -41,6 +41,6 @@ backend/data/
 *.db-journal
 *.csv
 
-嬉# Package lock files (gerados automaticamente)
+# Package lock files (gerados automaticamente)
 package-lock.json
 backend/package-lock.json
