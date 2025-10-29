@@ -6,8 +6,9 @@ import { Router } from 'express';
 import { UserController } from '../controllers/UserController';
 
 const router = Router();
+const dbPath = process.env.DB_PATH || './data/users.db';
 const csvPath = process.env.CSV_PATH || './data/users.csv';
-const userController = new UserController(csvPath);
+const userController = new UserController(dbPath, csvPath);
 
 // GET /api/users/api - Busca usuários da API externa
 router.get('/api', (req, res) => userController.fetchFromApi(req, res));

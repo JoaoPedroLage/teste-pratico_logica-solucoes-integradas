@@ -1,10 +1,9 @@
 /**
- * Serviço responsável por gerenciar operações com arquivo CSV---------------------------------------------------------------------------
- * Seguindo o princípio de Responsabilidade Única (SOLID)
+ * Serviço para gerenciamento de operações com arquivo CSV
  */
 import * as fs from 'fs';
 import * as path from 'path';
-import * as csv from 'csv-parser';
+import csv from 'csv-parser';
 import { createObjectCsvWriter } from 'csv-writer';
 import { User } from '../models/User';
 
@@ -18,16 +17,12 @@ export class CsvService {
     this.initializeCsvWriter();
   }
 
-  /**
-   * Garante que o arquivo CSV existe, criando-o se necessário
-   */
   private ensureCsvFileExists(): void {
     const dir = path.dirname(this.csvPath);
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }
     if (!fs.existsSync(this.csvPath)) {
-      // Cria arquivo CSV vazio com cabeçalho
       const header = [
         'id',
         'uid',
@@ -58,9 +53,6 @@ export class CsvService {
     }
   }
 
-  /**
-   * Inicializa o escritor CSV com os cabeçalhos
-   */
   private initializeCsvWriter(): void {
     this.csvWriter = createObjectCsvWriter({
       path: this.csvPath,
@@ -94,9 +86,6 @@ export class CsvService {
     });
   }
 
-  /**
-   * Converte um User para formato CSV
-   */
   private userToCsvRow(user: User, id: number): any {
     return {
       id: id.toString(),
@@ -295,12 +284,7 @@ export class CsvService {
     return Math.max(...users.map((u) => u.id));
   }
 
-  /**
-   * Reescreve o arquivo CSV completo
-   * Garante a preservação da integridade do arquivo
-   */
-  private async rewriteCsvFile(users: User[]): Promise<void> {
-    // Cria um novo escritor sem append
+  async rewriteCsvFile(users: User[]): Promise<void> {
     const writer = createObjectCsvWriter({
       path: this.csvPath,
       header: [
