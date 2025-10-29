@@ -1,19 +1,22 @@
 /**
- * Controller responsável por gerenciar requisições relacionadas a usuários
- * Seguindo o princípio de Responsabilidade Única e Separation of Concerns (SOLID)
+ * Controller para gerenciamento de requisições relacionadas a usuários
  */
 import { Request, Response } from 'express';
 import { ApiService } from '../services/ApiService';
+import { DatabaseService } from '../services/DatabaseService';
 import { CsvService } from '../services/CsvService';
+import { SyncService } from '../services/SyncService';
 import { User } from '../models/User';
 
 export class UserController {
   private apiService: ApiService;
-  private csvService: CsvService;
+  private syncService: SyncService;
 
-  constructor(csvPath: string) {
+  constructor(dbPath: string, csvPath: string) {
     this.apiService = new ApiService();
-    this.csvService = new CsvService(csvPath);
+    const databaseService = new DatabaseService(dbPath);
+    const csvService = new CsvService(csvPath);
+    this.syncService = new SyncService(databaseService, csvService);
   }
 
   /**
@@ -30,10 +33,30 @@ export class UserController {
       });
     } catch (error) {
       console.error('Erro ao buscar usuários da API:', error);
-      res.status(500).json({
+      
+      let statusCode = 500;
+      let errorMessage = 'Erro desconhecido';
+      
+      if (error instanceof Error) {
+        errorMessage = error.message;
+        
+        if (error.message.includes('DNS') || 
+            error.message.includes('resolver o endereço') ||
+            error.message.includes('conectar à API externa') ||
+            error.message.includes('timeout')) {
+          statusCode = 503;
+        }
+        else if (error.message.includes('configurar') || 
+                 error.message.includes('inválido')) {
+          statusCode = 400;
+        }
+      }
+      
+      res.status(statusCode).json({
         success: false,
         message: 'Erro ao buscar usuários da API',
-        error: error instanceof Error ? error.message : 'Erro desconhecido',
+        error: errorMessage,
+        timestamp: new Date().toISOString(),
       });
     }
   }
@@ -52,10 +75,10 @@ export class UserController {
         return;
       }
 
-      await this.csvService.addUsers(users);
+      await this.syncService.addUsers(users);
       res.json({
         success: true,
-        message: `${users.length} usuário(s) salvo(s) com sucesso`,
+        message: `${users.length} usuário(s) salvo(s) com sucesso em SQLite e CSV`,
       });
     } catch (error) {
       console.error('Erro ao salvar usuários:', error);
@@ -68,11 +91,11 @@ export class UserController {
   }
 
   /**
-   * Lista todos os usuários do CSV
+   * Lista todos os usuários (SQLite + CSV sincronizados)
    */
   async listUsers(req: Request, res: Response): Promise<void> {
     try {
-      const users = await this.csvService.getAllUsers();
+      const users = await this.syncService.getAllUsers();
       res.json({
         success: true,
         data: users,
@@ -102,7 +125,7 @@ export class UserController {
         return;
       }
 
-      const user = await this.csvService.getUserById(id);
+      const user = await this.syncService.getUserById(id);
       if (!user) {
         res.status(404).json({
           success: false,
@@ -139,7 +162,7 @@ export class UserController {
         return;
       }
 
-      const updatedUser = await this.csvService.updateUser(id, req.body);
+      const updatedUser = await this.syncService.updateUser(id, req.body);
       if (!updatedUser) {
         res.status(404).json({
           success: false,
@@ -177,7 +200,7 @@ export class UserController {
         return;
       }
 
-      const deleted = await this.csvService.deleteUser(id);
+      const deleted = await this.syncService.deleteUser(id);
       if (!deleted) {
         res.status(404).json({
           success: false,
@@ -217,7 +240,7 @@ export class UserController {
       }
 
       const fields = fieldsParam ? fieldsParam.split(',') : ['first_name', 'last_name', 'email'];
-      const users = await this.csvService.searchUsers(searchTerm, fields);
+      const users = await this.syncService.searchUsers(searchTerm, fields);
 
       res.json({
         success: true,
