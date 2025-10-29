@@ -11,44 +11,52 @@
   - Exibe lista de usuários com informações completas
   - Permite seleção múltipla de usuários para salvar
 
-### 2. Gravação em CSV
-- **Funcionalidade**: Salvar usuários em arquivo CSV
-- **Formato**: CSV com separação por vírgula
-- **Características**:
+### 2. Persistência Dual (SQLite + CSV)
+- **Funcionalidade**: Salvar usuários em SQLite e CSV simultaneamente
+- **SQLite**: Banco de dados relacional com tabelas normalizadas
+  - Tabela principal `users` com dados básicos
+  - Tabelas relacionadas: `employment`, `address`, `credit_card`, `subscription`
+  - Transações ACID para garantir integridade
+  - Índices para otimização de buscas
+- **CSV**: Arquivo de texto para backup e portabilidade
+  - Formato: CSV com separação por vírgula
   - Preserva integridade do arquivo
-  - Adiciona IDs sequenciais automaticamente
-  - Suporta múltiplos usuários simultaneamente
-  - Estrutura: id, uid, first_name, last_name, username, email, avatar, gender, phone_number, social_insurance_number, date_of_birth, employment_title, employment_key_skill, address_city, address_street_name, address_street_address, address_zip_code, address_state, address_country, credit_card_cc_number, subscription_plan, subscription_status, subscription_payment_method, subscription_term
+  - Compatível com Excel, Google Sheets, etc.
+- **Sincronização**: `SyncService` garante que ambos os sistemas estejam sempre atualizados
 
 ### 3. Edição de Registros
-- **Funcionalidade**: Editar usuários salvos no CSV
+- **Funcionalidade**: Editar usuários salvos em SQLite e CSV
 - **Interface**: Modal com formulário de edição
 - **Características**:
   - Permite editar: nome, sobrenome, email, telefone, cidade, estado, cargo, plano
-  - Preserva integridade do arquivo CSV
-  - Atualiza apenas os campos modificados
-  - Mantém a ordem original dos registros
+  - Atualiza simultaneamente no SQLite e CSV
+  - No SQLite: atualiza tabelas relacionadas
+  - No CSV: preserva integridade do arquivo
+  - Mantém a ordem original dos registros no CSV
 
 ### 4. Exclusão de Registros
-- **Funcionalidade**: Remover usuários do CSV
+- **Funcionalidade**: Remover usuários do SQLite e CSV
 - **Interface**: Botão de exclusão na lista de usuários
 - **Características**:
   - Confirmação antes de excluir
-  - Preserva integridade do arquivo
-  - Mantém ordem dos registros restantes
-  - Reescreve arquivo completo após exclusão
+  - Remove do SQLite com DELETE CASCADE (remove registros relacionados)
+  - No CSV: preserva integridade do arquivo
+  - Mantém ordem dos registros restantes no CSV
+  - Reescreve arquivo CSV completo após exclusão
 
 ### 5. Pesquisa Multi-campo
 - **Funcionalidade**: Buscar usuários por múltiplos campos
+- **Fonte de dados**: Prioriza SQLite, com fallback para CSV
 - **Campos de busca padrão**:
   - Nome (first_name)
   - Sobrenome (last_name)
   - Email (email)
 - **Características**:
   - Busca case-insensitive
-  - Busca parcial (contains)
+  - Busca parcial (LIKE %termo%)
   - Busca em tempo real (debounce)
   - Interface dedicada na navegação
+  - Índices no SQLite para performance
 
 ### 6. Menu de Navegação
 - **Funcionalidade**: Alternar entre diferentes views
@@ -74,9 +82,14 @@
 - **Framework**: Express
 - **Linguagem**: TypeScript
 - **Arquitetura**: SOLID
+- **Banco de Dados**: SQLite3
 - **Camadas**:
   - Controllers: Recebem requisições HTTP
   - Services: Lógica de negócio
+    - ApiService: Comunicação com API externa
+    - DatabaseService: Operações com SQLite
+    - CsvService: Manipulação de CSV
+    - SyncService: Sincronização DB + CSV
   - Models: Estrutura de dados
   - Routes: Definição de endpoints
 
@@ -87,22 +100,30 @@
 - ✅ Interface Segregation Principle (ISP)
 - ✅ Dependency Inversion Principle (DIP)
 
-## 📊 Preservação de Integridade do CSV
+## 📊 Persistência e Sincronização
 
-### Como funciona:
+### SQLite (Banco de Dados Relacional)
+- Tabelas normalizadas com relacionamentos
+- Transações ACID
+- Índices para otimização
+- DELETE CASCADE para integridade referencial
+
+### CSV (Backup e Portabilidade)
+- Formato legível e compatível
+- Preservação de integridade
+
+### Preservação de Integridade do CSV
 1. **Leitura**: Arquivo completo é lido em memória
 2. **Operação**: Modificação é realizada no array em memória
 3. **Escrita**: Arquivo é reescrito completamente
 4. **Preservação**: Ordem original é mantida
 
-### Exemplo:
-- Arquivo com 1.000 linhas
-- Usuário edita linha 50
-- Processo:
-  1. Lê todas as 1.000 linhas
-  2. Atualiza linha 50 no array
-  3. Reescreve arquivo completo
-  4. Linhas 1-49 e 51-1000 permanecem intactas
+### Sincronização Automática
+- Todas as operações CRUD são executadas em SQLite e CSV
+- SQLite é a fonte primária de dados
+- Na inicialização, sincroniza dados se houver discrepâncias
+- Se SQLite estiver vazio e CSV tiver dados: importa CSV → SQLite
+- Se CSV estiver vazio e SQLite tiver dados: exporta SQLite → CSV
 
 ## 🔍 Pesquisa
 

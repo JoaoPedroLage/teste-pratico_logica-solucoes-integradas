@@ -23,7 +23,7 @@ Aplicativo desenvolvido para atender todas as especificações do teste prático
 - ✅ TypeScript
 - ✅ TailwindCSS
 - ✅ Backend com Docker
-- ✅ SQLite preparado (usando CSV conforme requisito)
+- ✅ SQLite como banco de dados relacional + CSV para persistência dual
 - ✅ Node.js no backend
 - ✅ Classes POO
 - ✅ Princípios SOLID
@@ -72,7 +72,9 @@ teste-pratico_logica-solucoes-integradas/
 │   │   │   └── UserController.ts
 │   │   ├── services/             # Services (SOLID)
 │   │   │   ├── ApiService.ts     # Serviço API externa
-│   │   │   └── CsvService.ts     # Serviço CSV
+│   │   │   ├── DatabaseService.ts # Serviço SQLite
+│   │   │   ├── CsvService.ts     # Serviço CSV
+│   │   │   └── SyncService.ts    # Sincronização DB + CSV
 │   │   ├── models/               # Models
 │   │   │   └── User.ts           # Modelo de usuário
 │   │   ├── routes/               # Rotas Express
@@ -116,6 +118,17 @@ teste-pratico_logica-solucoes-integradas/
    cd ..
    ```
 
+3. **Configurar variáveis de ambiente (opcional):**
+   ```bash
+   # Frontend - copiar e editar se necessário
+   cp .env.example .env
+   
+   # Backend - copiar e editar se necessário
+   cp backend/.env.example backend/.env
+   ```
+   
+   > **Nota**: A detecção automática de porta funciona sem necessidade de configuração. Os arquivos `.env` são opcionais. A aplicação usa apenas arquivos `.env` (não `.env.local`).
+
 ### Execução
 
 #### Opção 1: Com Docker (Recomendado)
@@ -141,9 +154,11 @@ npm run dev
 
 ### Acessar a aplicação
 
-- **Frontend**: http://localhost:3000
-- **Backend API**: http://localhost:3001
-- **Health Check**: http://localhost:3001/health
+- **Frontend**: http://localhost:3000 (ou próxima porta disponível)
+- **Backend API**: http://localhost:3001 (ou próxima porta disponível se 3001 estiver ocupada)
+- **Health Check**: http://localhost:3001/health (ou porta alternativa)
+
+   > **Nota**: Se a porta padrão do backend (3001) estiver ocupada, o servidor tentará automaticamente portas subsequentes (3002, 3003, etc.). O frontend detecta automaticamente a porta correta do backend. Se precisar configurar manualmente, edite o arquivo `.env` (frontend ou backend).
 
 ## 📚 API Endpoints
 
@@ -208,7 +223,9 @@ O projeto segue os princípios SOLID e Clean Code:
 
 ### Single Responsibility Principle (SRP)
 - `ApiService`: Responsável apenas por comunicação com API externa
+- `DatabaseService`: Responsável apenas por operações com SQLite
 - `CsvService`: Responsável apenas por manipulação de CSV
+- `SyncService`: Responsável apenas por sincronização entre DB e CSV
 - `UserController`: Responsável apenas por lidar com requisições HTTP
 
 ### Open/Closed Principle (OCP)
@@ -243,12 +260,76 @@ O arquivo CSV é sempre reescrito completamente após edições/exclusões:
 3. Reescreve arquivo completo
 4. Linhas 1-49 e 51-1000 permanecem intactas
 
+### Persistência Dual (SQLite + CSV)
+
+A aplicação utiliza uma estratégia de persistência dual para garantir redundância e flexibilidade:
+
+- **SQLite (Banco de Dados Relacional)**: 
+  - Banco de dados principal para operações rápidas e consultas complexas
+  - Armazena dados relacionados em tabelas normalizadas (users, employment, address, credit_card, subscription)
+  - Suporta transações ACID para garantir integridade
+  - Priorizado para leitura e busca de dados
+
+- **CSV (Arquivo de Texto)**:
+  - Backup e portabilidade de dados
+  - Compatibilidade com ferramentas externas (Excel, Google Sheets, etc.)
+  - Facilita exportação e importação de dados
+  - Mantém formato legível e auditável
+
+- **Sincronização Automática**:
+  - O `SyncService` garante que todas as operações CRUD sejam executadas em ambos os sistemas
+  - Na inicialização, sincroniza dados entre SQLite e CSV se houver discrepâncias
+  - SQLite é a fonte primária de dados (source of truth)
+  - CSV é sincronizado automaticamente após cada operação
+
+**Vantagens Operacionais:**
+- ✅ Redundância de dados
+- ✅ Migração e backup simplificados via CSV
+- ✅ Performance otimizada com SQLite para consultas
+- ✅ Compatibilidade com sistemas externos via CSV
+- ✅ Integridade garantida através de sincronização automática
+
 ### Pesquisa Multi-campo
 
 - Busca em tempo real com debounce
 - Suporte a múltiplos campos simultaneamente
 - Busca case-insensitive
 - Busca parcial (contains)
+- Prioriza busca no SQLite com fallback para CSV
+
+### Resiliência e Fallback da API Externa
+
+A aplicação implementa uma estratégia robusta de fallback para garantir que continue funcionando mesmo quando a API externa (`random-data-api.com`) está indisponível:
+
+**Problema comum:** Falhas de conexão, problemas de DNS (`EAI_AGAIN`, `ENOTFOUND`), ou indisponibilidade temporária da API externa podem impedir o funcionamento da aplicação.
+
+**Solução implementada:**
+
+1. **Retry Logic com Backoff Exponencial:**
+   - O sistema tenta conectar à API externa 3 vezes automaticamente
+   - Intervalos crescentes entre tentativas (1s, 2s, 4s)
+   - Evita sobrecarga e aumenta chances de sucesso em falhas temporárias
+
+2. **Fallback Automático com Dados Mock:**
+   - Quando todas as tentativas falham, o sistema gera automaticamente dados mock de usuários
+   - Os dados mock seguem a mesma estrutura da API real
+   - A aplicação continua funcionando normalmente, permitindo que o usuário:
+     - Visualize usuários gerados localmente
+     - Salve, edite e delete esses usuários no CSV
+     - Utilize todas as funcionalidades da aplicação
+
+3. **Configuração de DNS Alternativo:**
+   - Suporte para servidores DNS alternativos via variável de ambiente `DNS_SERVERS`
+   - Útil quando o DNS local tem problemas
+   - Exemplo: `DNS_SERVERS=8.8.8.8,8.8.4.4` (Google DNS)
+
+**Vantagens:**
+- ✅ Aplicação nunca fica completamente indisponível
+- ✅ Experiência do usuário preservada mesmo com problemas externos
+- ✅ Permite desenvolvimento e testes mesmo sem conexão com a API externa
+- ✅ Logs detalhados para diagnóstico quando ocorrem falhas
+
+**Observação:** Quando o fallback é ativado, você verá no console do backend uma mensagem: `⚠️ API externa indisponível. Usando dados mock como fallback.`
 
 ## 📝 Documentação Adicional
 

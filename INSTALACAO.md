@@ -23,14 +23,20 @@ npm install
 cd ..
 ```
 
-### 3. Configure variáveis de ambiente
+### 3. Configure variáveis de ambiente (opcional)
 
-Crie o arquivo `backend/.env` (opcional, valores padrão já configurados):
+Crie os arquivos `.env` (opcional, valores padrão já configurados):
 ```bash
+# Frontend
+cp .env.example .env
+
+# Backend
 cd backend
 cp .env.example .env
 cd ..
 ```
+
+> **Nota**: A aplicação usa apenas arquivos `.env` (não `.env.local`). Os valores padrão funcionam sem configuração.
 
 ### 4. Execute a aplicação
 
@@ -73,7 +79,7 @@ teste-pratico_logica-solucoes-integradas/
 │   │   ├── models/
 │   │   ├── routes/
 │   │   └── server.ts
-│   └── data/               # Arquivos CSV são criados aqui
+│   └── data/               # Arquivos SQLite e CSV são criados aqui
 ├── docs/                   # Documentação
 ├── docker-compose.yml
 └── README.md

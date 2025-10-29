@@ -1,6 +1,6 @@
 # Backend - Gerenciador de Usuários
 
-Backend desenvolvido em Node.js com Express, TypeScript e seguindo princípios SOLID.
+Backend desenvolvido em Node.js com Express, TypeScript, SQLite e seguindo princípios SOLID.
 
 ## Estrutura
 
@@ -9,10 +9,16 @@ backend/
 ├── src/
 │   ├── controllers/    # Controllers (camada HTTP)
 │   ├── services/       # Services (lógica de negócio)
+│   │   ├── ApiService.ts       # Comunicação com API externa
+│   │   ├── DatabaseService.ts  # Operações com SQLite
+│   │   ├── CsvService.ts       # Manipulação de CSV
+│   │   └── SyncService.ts      # Sincronização DB + CSV
 │   ├── models/         # Modelos de dados
 │   ├── routes/         # Rotas Express
 │   └── server.ts       # Servidor principal
-├── data/               # Arquivos CSV (criados em runtime)
+├── data/               # Arquivos SQLite e CSV (criados em runtime)
+│   ├── users.db        # Banco de dados SQLite
+│   └── users.csv       # Arquivo CSV
 ├── Dockerfile
 └── package.json
 ```
