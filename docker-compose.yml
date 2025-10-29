@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: backend-logica-solucoes
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./backend/data:/app/data
+      - ./backend/src:/app/src
+    environment:
+      - NODE_ENV=development
+      - PORT=3001
+      - DB_PATH=/app/data/users.db
+      - CSV_PATH=/app/data/users.csv
+    restart: unless-stopped
