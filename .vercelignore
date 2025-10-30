@@ -1,63 +1,52 @@
 # .vercelignore
-# Arquivo para ignorar pastas e arquivos desnecessários no deploy do Vercel
-
-# Backend (não é necessário para o frontend)
+# Ignorar pasta backend completamente
 backend/
 
-# Documentação (não é necessária para produção)
+# Ignorar documentação desnecessária
 docs/
 *.md
 !README.md
 
-# Arquivos de desenvolvimento
+# Ignorar arquivos de desenvolvimento
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
 
-# Logs
+# Ignorar logs
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Dependências do backend
-backend/node_modules/
-backend/package-lock.json
-
-# Arquivos de dados do backend
-backend/data/
-backend/*.db
-backend/*.db-journal
-
-# Arquivos temporários
+# Ignorar arquivos temporários
 .tmp/
 .temp/
 *.tmp
 *.temp
 
-# Arquivos de sistema
+# Ignorar arquivos de sistema
 .DS_Store
 Thumbs.db
 
-# Arquivos de IDE
+# Ignorar arquivos de IDE
 .vscode/
 .idea/
 *.swp
 *.swo
 
-# Arquivos de teste
+# Ignorar arquivos de teste
 __tests__/
 *.test.js
 *.test.ts
 *.spec.js
 *.spec.ts
 
-# Arquivos de configuração do Docker
+# Ignorar arquivos de configuração do Docker
 docker-compose.yml
 Dockerfile
 .dockerignore
 
-# Arquivos de backup
+# Ignorar arquivos de backup
 *.bak
 *.backup
