@@ -14,21 +14,25 @@ import { SearchParams, DEFAULT_SEARCH_FIELDS } from '../constants/ApiConstants';
 export class UserController {
   private apiService: ApiService;
   private syncService: SyncService;
+  private csvService: CsvService;
 
   constructor(dbPath: string, csvPath: string, ownerId: number) {
     this.apiService = new ApiService();
     const databaseService = new DatabaseService(dbPath);
-    const csvService = new CsvService(csvPath, ownerId);
-    this.syncService = new SyncService(databaseService, csvService, ownerId);
+    this.csvService = new CsvService(csvPath, ownerId);
+    this.syncService = new SyncService(databaseService, this.csvService, ownerId);
   }
 
   /**
-   * Busca usuários da API externa
+   * Busca usuários da API externa Random User API
    */
   async fetchFromApi(req: Request, res: Response): Promise<void> {
     try {
       const size = parseInt(req.query.size as string) || 10;
-      const users = await this.apiService.fetchUsers(size);
+      const gender = req.query.gender as string | undefined;
+      const nat = req.query.nat as string | undefined;
+      
+      const users = await this.apiService.fetchUsers(size, gender, nat);
       res.json({
         success: true,
         data: users,
@@ -228,8 +232,29 @@ export class UserController {
   }
 
   /**
-   * Busca usuários com base em critérios de pesquisa
+   * Mapeia campos de notação de ponto (ex: 'name.first') para campos do banco de dados (ex: 'name_first')
    */
+  private mapSearchFieldsToDbFields(fields: string[]): string[] {
+    const fieldMapping: Record<string, string> = {
+      'name.first': 'name_first',
+      'name.last': 'name_last',
+      'email': 'email',
+      'login.username': 'login_username',
+      'login.uuid': 'login_uuid',
+      'location.city': 'location_city',
+      'location.state': 'location_state',
+      'location.country': 'location_country',
+      'phone': 'phone',
+      'cell': 'cell',
+      'nat': 'nat',
+    };
+
+    return fields.map(field => {
+      const trimmedField = field.trim();
+      return fieldMapping[trimmedField] || trimmedField.replace(/\./g, '_');
+    });
+  }
+
   async searchUsers(req: Request, res: Response): Promise<void> {
     try {
       // Aceita tanto 'q' quanto 'term' para compatibilidade
@@ -244,15 +269,17 @@ export class UserController {
         return;
       }
 
-      const fields = fieldsParam ? fieldsParam.split(',') : DEFAULT_SEARCH_FIELDS;
-      const users = await this.syncService.searchUsers(searchTerm, fields);
+      const requestedFields = fieldsParam ? fieldsParam.split(',').map(f => f.trim()) : DEFAULT_SEARCH_FIELDS;
+      // Mapeia campos de notação de ponto para campos do banco de dados
+      const dbFields = this.mapSearchFieldsToDbFields(requestedFields);
+      const users = await this.syncService.searchUsers(searchTerm, dbFields);
 
       res.json({
         success: true,
         data: users,
         count: users.length,
         searchTerm,
-        fields,
+        fields: requestedFields,
       });
     } catch (error) {
       console.error('Erro ao buscar usuários:', error);
@@ -265,25 +292,102 @@ export class UserController {
   }
 
   /**
-   * Download do arquivo CSV
+   * Valida se o arquivo CSV está bem formatado (cabeçalho correto e sem linhas vazias/inválidas)
    */
+  private validateCsvFile(csvPath: string): boolean {
+    try {
+      const content = fs.readFileSync(csvPath, 'utf-8');
+      const lines = content.trim().split('\n');
+      
+      if (lines.length === 0 || lines.length === 1) {
+        // Apenas cabeçalho, sem dados (pode estar vazio, mas válido)
+        return lines.length === 1;
+      }
+      
+      const header = lines[0].trim();
+      // Verifica se o cabeçalho começa com os campos esperados (não com um número)
+      const expectedFirstFields = ['csv_id', 'gender', 'name_title'];
+      const firstField = header.split(',')[0]?.trim();
+      
+      // Se o primeiro campo do cabeçalho é um número, o CSV está corrompido
+      if (firstField && !isNaN(Number(firstField))) {
+        console.warn('CSV corrompido detectado: cabeçalho contém dados numéricos');
+        return false;
+      }
+      
+      // Verifica se o cabeçalho contém pelo menos alguns campos esperados
+      const hasExpectedFields = expectedFirstFields.some(field => 
+        header.toLowerCase().includes(field.toLowerCase())
+      );
+      
+      if (!hasExpectedFields) {
+        console.warn('CSV corrompido detectado: cabeçalho não contém campos esperados');
+        return false;
+      }
+      
+      // Verifica se há linhas vazias ou inválidas (apenas csv_id sem outros dados)
+      for (let i = 1; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (line === '' || line === ',') {
+          console.warn(`CSV corrompido detectado: linha ${i + 1} está vazia`);
+          return false;
+        }
+        
+        const fields = line.split(',');
+        if (fields.length === 0) continue;
+        
+        // Verifica se a linha tem apenas csv_id e campos vazios
+        const firstFieldValue = fields[0]?.trim();
+        const hasOnlyId = firstFieldValue && !isNaN(Number(firstFieldValue)) &&
+                         fields.slice(1).every(field => !field || field.trim() === '');
+        
+        if (hasOnlyId) {
+          console.warn(`CSV corrompido detectado: linha ${i + 1} contém apenas csv_id sem dados`);
+          return false;
+        }
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Erro ao validar arquivo CSV:', error);
+      return false;
+    }
+  }
+
   async downloadCsv(req: Request, res: Response): Promise<void> {
     try {
-      const csvPath = process.env.CSV_PATH || './data/users.csv';
+      const csvPath = this.csvService.getCsvPath();
       
-      if (!fs.existsSync(csvPath)) {
+      // Verifica se o arquivo existe e está válido
+      if (fs.existsSync(csvPath) && this.validateCsvFile(csvPath)) {
+        // Envia o arquivo existente se estiver válido
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', `attachment; filename="users_${path.basename(csvPath)}"`);
+        const fileStream = fs.createReadStream(csvPath);
+        fileStream.pipe(res);
+        return;
+      }
+
+      // Se o arquivo não existe ou está corrompido, gera CSV em memória a partir do banco de dados
+      const users = await this.syncService.getAllUsers();
+      
+      if (users.length === 0) {
         res.status(404).json({
           success: false,
-          message: 'Arquivo CSV não encontrado',
+          message: 'Nenhum usuário encontrado para exportar',
         });
         return;
       }
 
-      res.setHeader('Content-Type', 'text/csv');
-      res.setHeader('Content-Disposition', 'attachment; filename="users.csv"');
+      // Mapeia DbUser[] para StoredUser[] (converte db_id para csv_id)
+      const storedUsers = users.map(user => ({ ...user, csv_id: user.db_id }));
+
+      // Gera CSV em memória com validação completa
+      const csvContent = this.csvService.generateCsvInMemory(storedUsers);
       
-      const fileStream = fs.createReadStream(csvPath);
-      fileStream.pipe(res);
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="users_${path.basename(csvPath)}"`);
+      res.send(csvContent);
     } catch (error) {
       console.error('Erro ao fazer download do CSV:', error);
       res.status(500).json({
