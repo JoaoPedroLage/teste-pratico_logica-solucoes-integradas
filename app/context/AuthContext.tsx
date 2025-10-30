@@ -58,6 +58,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [verifyToken]);
 
   const getBackendUrl = async (): Promise<string> => {
+    // Se NEXT_PUBLIC_BACKEND_URL estiver definida (produção), usa ela diretamente
+    const productionUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
+    if (productionUrl) {
+      return productionUrl.endsWith('/') ? productionUrl.slice(0, -1) : productionUrl;
+    }
+
+    // Desenvolvimento local - usa descoberta automática
     try {
       const { getBackendApiUrl } = await import('../utils/backendApi');
       const url = await getBackendApiUrl();

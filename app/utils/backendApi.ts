@@ -92,6 +92,38 @@ async function discoverBackendPort(): Promise<string> {
  * @throws {Error} Se não conseguir encontrar o backend em nenhuma porta
  */
 export async function getBackendApiUrl(): Promise<string> {
+  // Se NEXT_PUBLIC_BACKEND_URL estiver definida (produção), usa ela diretamente
+  const productionUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
+  if (productionUrl) {
+    // Garante que a URL termine com /api/users
+    const baseUrl = productionUrl.endsWith('/') ? productionUrl.slice(0, -1) : productionUrl;
+    const apiUrl = `${baseUrl}/api/users`;
+    
+    // Verifica se o backend está realmente disponível
+    try {
+      const healthUrl = `${baseUrl}/health`;
+      const response = await axios.get(healthUrl, {
+        timeout: parseInt(process.env.NEXT_PUBLIC_BACKEND_TIMEOUT || '5000', 10),
+      });
+      
+      if (response.data.status !== 'OK') {
+        throw new Error(`Backend em ${baseUrl} não está respondendo corretamente`);
+      }
+    } catch (error: any) {
+      // Se não conseguiu conectar, lança erro informativo
+      if (error.code === 'ECONNREFUSED' || error.message.includes('timeout') || error.message.includes('Network Error')) {
+        throw new Error(
+          `Não foi possível conectar ao backend em ${baseUrl}. ` +
+          `Verifique se a URL está correta e o backend está rodando.`
+        );
+      }
+      throw error;
+    }
+    
+    return apiUrl;
+  }
+
+  // Desenvolvimento local - usa descoberta automática de porta
   const host = getBackendHost();
   const port = await discoverBackendPort();
   const protocol = process.env.NEXT_PUBLIC_BACKEND_PROTOCOL || 'http';

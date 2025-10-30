@@ -626,9 +626,14 @@ npm run build
 # Output Directory
 .next
 
-# Environment Variables
+# Environment Variables (OBRIGATÓRIAS)
 NEXT_PUBLIC_BACKEND_URL=https://backend-logica-solucoes.onrender.com
-NEXT_PUBLIC_BACKEND_PORT=443
+
+# Environment Variables (OPCIONAIS para desenvolvimento)
+NEXT_PUBLIC_BACKEND_HOST=localhost
+NEXT_PUBLIC_BACKEND_PORT=3001
+NEXT_PUBLIC_BACKEND_PROTOCOL=http
+NEXT_PUBLIC_BACKEND_TIMEOUT=5000
 ```
 
 #### **Backend (Render)**
@@ -655,6 +660,24 @@ CORS_ORIGIN=*
 - **`vercel.json`** - Configurações específicas do Vercel
 - **`backend/render.yaml`** - Configurações específicas do Render
 - **`backend/tsconfig.json`** - Configurações TypeScript otimizadas para deploy
+
+### **Variáveis de Ambiente**
+
+#### **Produção (Obrigatória)**
+- **`NEXT_PUBLIC_BACKEND_URL`** - URL completa do backend em produção
+  - Exemplo: `https://backend-logica-solucoes.onrender.com`
+  - **Importante**: Deve incluir o protocolo (https://) e não terminar com barra
+
+#### **Desenvolvimento (Opcionais)**
+- **`NEXT_PUBLIC_BACKEND_HOST`** - Host do backend local (padrão: localhost)
+- **`NEXT_PUBLIC_BACKEND_PORT`** - Porta do backend local (padrão: 3001)
+- **`NEXT_PUBLIC_BACKEND_PROTOCOL`** - Protocolo (padrão: http)
+- **`NEXT_PUBLIC_BACKEND_TIMEOUT`** - Timeout para requisições (padrão: 5000ms)
+
+#### **Como Funciona**
+1. **Se `NEXT_PUBLIC_BACKEND_URL` estiver definida** → Usa a URL de produção diretamente
+2. **Se não estiver definida** → Usa descoberta automática de porta para desenvolvimento local
+3. **Fallback** → Usa localhost:3001 se não conseguir descobrir automaticamente
 
 ### **Teste da Aplicação**
 
