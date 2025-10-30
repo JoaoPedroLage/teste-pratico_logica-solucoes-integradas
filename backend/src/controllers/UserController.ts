@@ -15,11 +15,11 @@ export class UserController {
   private apiService: ApiService;
   private syncService: SyncService;
 
-  constructor(dbPath: string, csvPath: string) {
+  constructor(dbPath: string, csvPath: string, ownerId: number) {
     this.apiService = new ApiService();
     const databaseService = new DatabaseService(dbPath);
-    const csvService = new CsvService(csvPath);
-    this.syncService = new SyncService(databaseService, csvService);
+    const csvService = new CsvService(csvPath, ownerId);
+    this.syncService = new SyncService(databaseService, csvService, ownerId);
   }
 
   /**
