@@ -104,7 +104,20 @@ export default function DashboardContent() {
         },
       });
       if (response.data) {
-        setSavedUsers(Array.isArray(response.data) ? response.data : response.data.data || []);
+        const users = Array.isArray(response.data) ? response.data : response.data.data || [];
+        // Filtra usuários inválidos (sem db_id, name ou email)
+        const validUsers = users.filter((user: SavedUser) => 
+          user && 
+          user.db_id != null && 
+          user.name && 
+          (user.name.first || user.name.last) &&
+          user.email
+        );
+        setSavedUsers(validUsers);
+        // Remove usuários selecionados que não existem mais na lista
+        setSelectedSavedUsers(prev => 
+          prev.filter(selected => validUsers.some(u => u.db_id === selected.db_id))
+        );
       }
     } catch (error) {
       console.error('Erro ao carregar usuários salvos:', error);
@@ -146,14 +159,18 @@ export default function DashboardContent() {
   };
 
   const searchUsers = useCallback(async (term: string) => {
-    if (!term.trim()) {
+    const trimmedTerm = term.trim();
+    
+    if (!trimmedTerm) {
       setSearchResults([]);
       return;
     }
 
     try {
       const url = await getBackendApiUrl();
-      const response = await axios.get(`${url}/search?term=${term}`, {
+      const searchUrl = `${url}/search?term=${encodeURIComponent(trimmedTerm)}`;
+      
+      const response = await axios.get(searchUrl, {
         headers: {
           Authorization: `Bearer ${token || ''}`,
           'x-owner-id': authUser?.id || '0'
@@ -161,22 +178,60 @@ export default function DashboardContent() {
       });
 
       if (response.data) {
-        setSearchResults(Array.isArray(response.data) ? response.data : response.data.data || []);
+        // O backend retorna { success: true, data: [...], count: ... }
+        const results = response.data.success && response.data.data 
+          ? response.data.data 
+          : Array.isArray(response.data) 
+            ? response.data 
+            : [];
+        
+        // Filtra usuários inválidos
+        const validResults = results.filter((user: SavedUser) => 
+          user && 
+          user.db_id != null && 
+          user.name && 
+          (user.name.first || user.name.last) &&
+          user.email
+        );
+        
+        setSearchResults(validResults);
+      } else {
+        setSearchResults([]);
       }
-    } catch (error) {
-      console.error('Erro ao buscar:', error);
+    } catch (error: any) {
+      console.error('Erro ao buscar usuários:', error);
+      if (error.response) {
+        console.error('Resposta do servidor:', error.response.status, error.response.data);
+      }
+      setSearchResults([]);
     }
   }, [token, authUser]);
 
+  // Debounce para a pesquisa
   useEffect(() => {
     if (activeTab === 'search') {
       const timeoutId = setTimeout(() => {
-        searchUsers(searchTerm);
-      }, 500);
+        const trimmedTerm = searchTerm.trim();
+        if (trimmedTerm) {
+          searchUsers(trimmedTerm);
+        } else {
+          setSearchResults([]);
+        }
+      }, 300);
 
       return () => clearTimeout(timeoutId);
+    } else {
+      // Limpa os resultados quando sai da aba de pesquisa
+      setSearchResults([]);
     }
   }, [searchTerm, activeTab, searchUsers]);
+
+  // Handler para atualizar o termo de pesquisa
+  const handleSearchTermChange = (term: string) => {
+    setSearchTerm(term);
+    // Se estamos na aba de pesquisa e o termo não está vazio, força a pesquisa imediata (sem debounce)
+    // O debounce no useEffect ainda funcionará normalmente
+  };
 
   const handleDeleteClick = (id: number) => {
     setConfirmDialog({
@@ -239,7 +294,9 @@ export default function DashboardContent() {
         } else {
           showToast('Falha ao excluir usuários selecionados.', 'error');
         }
+        // Remove usuários deletados da lista de selecionados e da lista principal
         setSelectedSavedUsers([]);
+        setSavedUsers(prev => prev.filter(u => !confirmDialog.userIds?.includes(u.db_id)));
         await loadSavedUsers();
         if (activeTab === 'search') {
           await searchUsers(searchTerm);
@@ -267,6 +324,9 @@ export default function DashboardContent() {
         },
       });
       showToast('Usuário excluído com sucesso!', 'success');
+      // Remove usuário deletado da lista de selecionados e da lista principal
+      setSelectedSavedUsers(prev => prev.filter(u => u.db_id !== confirmDialog.userId));
+      setSavedUsers(prev => prev.filter(u => u.db_id !== confirmDialog.userId));
       await loadSavedUsers();
       if (activeTab === 'search') {
         await searchUsers(searchTerm);
@@ -448,7 +508,7 @@ export default function DashboardContent() {
                 <SearchTab
                   searchTerm={searchTerm}
                   searchResults={searchResults}
-                  onSearchTermChange={setSearchTerm}
+                  onSearchTermChange={handleSearchTermChange}
                   onEditClick={handleEditClick}
                   onDeleteClick={handleDeleteClick}
                 />

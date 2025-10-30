@@ -130,7 +130,9 @@ export default function SavedUsersTab({
                         {user.name?.first} {user.name?.last}
                       </p>
                       <p className="text-xs text-gray-500 truncate mt-0.5">{user.email}</p>
-                      <p className="text-xs text-gray-400 mt-1">{user.nat || 'N/A'}</p>
+                      {user.nat && (
+                        <p className="text-xs text-gray-400 mt-1">{user.nat}</p>
+                      )}
                     </div>
                   </div>
                   <div className="mt-3 flex justify-end gap-1" onClick={e => e.stopPropagation()}>
