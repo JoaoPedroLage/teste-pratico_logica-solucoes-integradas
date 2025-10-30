@@ -1,20 +1,40 @@
 /**
  * Serviço para gerenciamento de operações com banco de dados SQLite
+ * ATUALIZADO para ser compatível com a interface User (de randomuser.me)
  */
 import sqlite3 from 'sqlite3';
 import { promisify } from 'util';
 import * as path from 'path';
 import * as fs from 'fs';
+import { merge as deepMerge } from 'lodash'; // Para o updateUser
 import { User } from '../models/User';
+
+// Define o tipo de retorno: o User da API + o ID do nosso banco
+// O ID do banco (PK) é 'db_id' para evitar conflito com 'user.id' (que é um objeto)
+type StoredUser = User & { db_id: number };
 
 export class DatabaseService {
   private db: sqlite3.Database;
   private dbPath: string;
 
+  // Versões Promisified dos métodos do DB
+  private dbRun: (sql: string, params?: any) => Promise<{ lastID: number; changes: number }>;
+  private dbGet: (sql: string, params?: any) => Promise<any>;
+  private dbAll: (sql: string, params?: any) => Promise<any[]>;
+  private dbClose: () => Promise<void>;
+
   constructor(dbPath: string) {
     this.dbPath = dbPath;
     this.ensureDatabaseExists();
     this.db = new sqlite3.Database(this.dbPath);
+
+    // Promisify dos métodos do DB para usar async/await
+    // Usamos 'this' no 'run' para acessar 'this.lastID' e 'this.changes'
+    this.dbRun = promisify(this.db.run.bind(this.db));
+    this.dbGet = promisify(this.db.get.bind(this.db));
+    this.dbAll = promisify(this.db.all.bind(this.db));
+    this.dbClose = promisify(this.db.close.bind(this.db));
+
     this.initializeDatabase();
   }
 
@@ -30,620 +50,346 @@ export class DatabaseService {
   }
 
   private async initializeDatabase(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      this.db.serialize(() => {
-        this.db.run(`
-          CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            uid TEXT NOT NULL,
-            first_name TEXT NOT NULL,
-            last_name TEXT NOT NULL,
-            username TEXT NOT NULL,
-            email TEXT NOT NULL,
-            avatar TEXT,
-            gender TEXT,
-            phone_number TEXT,
-            social_insurance_number TEXT,
-            date_of_birth TEXT,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-          )
-        `, (err) => {
-          if (err) {
-            console.error('Erro ao criar tabela users:', err);
-            reject(err);
-            return;
-          }
-        });
+    try {
+      // O 'db_id' é nossa Primary Key interna
+      // O 'id_name' e 'id_value' vêm do objeto 'user.id' da API
+      await this.dbRun(`
+        CREATE TABLE IF NOT EXISTS users (
+          db_id INTEGER PRIMARY KEY AUTOINCREMENT,
+          owner_id INTEGER NOT NULL,
+          gender TEXT,
+          name_title TEXT,
+          name_first TEXT,
+          name_last TEXT,
+          location_street_number INTEGER,
+          location_street_name TEXT,
+          location_city TEXT,
+          location_state TEXT,
+          location_country TEXT,
+          location_postcode TEXT,
+          location_coordinates_latitude TEXT,
+          location_coordinates_longitude TEXT,
+          location_timezone_offset TEXT,
+          location_timezone_description TEXT,
+          email TEXT,
+          login_uuid TEXT UNIQUE,
+          login_username TEXT,
+          login_password TEXT,
+          login_salt TEXT,
+          login_md5 TEXT,
+          login_sha1 TEXT,
+          login_sha256 TEXT,
+          dob_date TEXT,
+          dob_age INTEGER,
+          registered_date TEXT,
+          registered_age INTEGER,
+          phone TEXT,
+          cell TEXT,
+          id_name TEXT,
+          id_value TEXT,
+          picture_large TEXT,
+          picture_medium TEXT,
+          picture_thumbnail TEXT,
+          nat TEXT,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
 
-        this.db.run(`
-          CREATE TABLE IF NOT EXISTS employment (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            title TEXT,
-            key_skill TEXT,
-            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-          )
-        `, (err) => {
-          if (err) {
-            console.error('Erro ao criar tabela employment:', err);
-            reject(err);
-            return;
-          }
-        });
+      // Índices Corrigidos
+      await this.dbRun(`CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)`);
+      await this.dbRun(`CREATE INDEX IF NOT EXISTS idx_users_name_first ON users(name_first)`);
+      await this.dbRun(`CREATE INDEX IF NOT EXISTS idx_users_name_last ON users(name_last)`);
+      await this.dbRun(`CREATE INDEX IF NOT EXISTS idx_users_owner_id ON users(owner_id)`);
 
-        this.db.run(`
-          CREATE TABLE IF NOT EXISTS address (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            city TEXT,
-            street_name TEXT,
-            street_address TEXT,
-            zip_code TEXT,
-            state TEXT,
-            country TEXT,
-            lng REAL,
-            lat REAL,
-            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-          )
-        `, (err) => {
-          if (err) {
-            console.error('Erro ao criar tabela address:', err);
-            reject(err);
-            return;
-          }
-        });
+      console.log('✅ Banco de dados SQLite inicializado com sucesso (Novo Schema)');
 
-        this.db.run(`
-          CREATE TABLE IF NOT EXISTS credit_card (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL UNIQUE,
-            cc_number TEXT,
-            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-          )
-        `, (err) => {
-          if (err) {
-            console.error('Erro ao criar tabela credit_card:', err);
-            reject(err);
-            return;
-          }
-        });
+      // Cria o gatilho (trigger) para atualizar 'updated_at'
+      await this.dbRun(`
+        CREATE TRIGGER IF NOT EXISTS update_users_updated_at
+        AFTER UPDATE ON users
+        FOR EACH ROW
+        BEGIN
+          UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE db_id = OLD.db_id;
+        END;
+      `);
 
-        this.db.run(`
-          CREATE TABLE IF NOT EXISTS subscription (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL UNIQUE,
-            plan TEXT,
-            status TEXT,
-            payment_method TEXT,
-            term TEXT,
-            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-          )
-        `, (err) => {
-          if (err) {
-            console.error('Erro ao criar tabela subscription:', err);
-            reject(err);
-            return;
-          }
-          console.log('✅ Banco de dados SQLite inicializado com sucesso');
-          resolve();
-        });
-
-        this.db.run(`CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)`);
-        this.db.run(`CREATE INDEX IF NOT EXISTS idx_users_first_name ON users(first_name)`);
-        this.db.run(`CREATE INDEX IF NOT EXISTS idx_users_last_name ON users(last_name)`);
-      });
-    });
+    } catch (err) {
+      console.error('Erro ao inicializar o banco de dados:', err);
+      throw err;
+    }
   }
 
-  private userToDb(user: User, userId?: number): any {
+  /**
+   * Converte um objeto User (da API) para um objeto plano para o DB
+   */
+  private userToDb(user: User, owner_id: number): any {
     return {
-      id: userId || user.id || null,
-      uid: user.uid || '',
-      first_name: user.first_name || '',
-      last_name: user.last_name || '',
-      username: user.username || '',
-      email: user.email || '',
-      avatar: user.avatar || '',
-      gender: user.gender || '',
-      phone_number: user.phone_number || '',
-      social_insurance_number: user.social_insurance_number || '',
-      date_of_birth: user.date_of_birth || '',
+      $owner_id: owner_id,
+      $gender: user.gender,
+      $name_title: user.name?.title,
+      $name_first: user.name?.first,
+      $name_last: user.name?.last,
+      $location_street_number: user.location?.street?.number,
+      $location_street_name: user.location?.street?.name,
+      $location_city: user.location?.city,
+      $location_state: user.location?.state,
+      $location_country: user.location?.country,
+      $location_postcode: user.location?.postcode,
+      $location_coordinates_latitude: user.location?.coordinates?.latitude,
+      $location_coordinates_longitude: user.location?.coordinates?.longitude,
+      $location_timezone_offset: user.location?.timezone?.offset,
+      $location_timezone_description: user.location?.timezone?.description,
+      $email: user.email,
+      $login_uuid: user.login?.uuid,
+      $login_username: user.login?.username,
+      $dob_date: user.dob?.date,
+      $dob_age: user.dob?.age,
+      $registered_date: user.registered?.date,
+      $registered_age: user.registered?.age,
+      $phone: user.phone,
+      $cell: user.cell,
+      $id_name: user.id?.name,
+      $id_value: user.id?.value,
+      $picture_large: user.picture?.large,
+      $picture_medium: user.picture?.medium,
+      $picture_thumbnail: user.picture?.thumbnail,
+      $nat: user.nat,
     };
   }
 
   /**
-   * Converte dados do banco para objeto User
+   * Converte dados do banco (linha plana) para objeto User (aninhado)
    */
-  private async dbToUser(row: any): Promise<User> {
-    // Busca dados relacionados
-    const employment = await this.getEmployment(row.id);
-    const address = await this.getAddress(row.id);
-    const creditCard = await this.getCreditCard(row.id);
-    const subscription = await this.getSubscription(row.id);
+  private dbToUser(row: any): StoredUser {
+    if (!row) return null;
 
     return {
-      id: row.id,
-      uid: row.uid,
-      first_name: row.first_name,
-      last_name: row.last_name,
-      username: row.username,
-      email: row.email,
-      avatar: row.avatar,
+      db_id: row.db_id, // Nosso ID interno do DB
       gender: row.gender,
-      phone_number: row.phone_number,
-      social_insurance_number: row.social_insurance_number,
-      date_of_birth: row.date_of_birth,
-      employment: employment || { title: '', key_skill: '' },
-      address: address || {
-        city: '',
-        street_name: '',
-        street_address: '',
-        zip_code: '',
-        state: '',
-        country: '',
-        lng: 0,
-        lat: 0,
+      name: {
+        title: row.name_title,
+        first: row.name_first,
+        last: row.name_last,
       },
-      credit_card: creditCard || { cc_number: '' },
-      subscription: subscription || {
-        plan: '',
-        status: '',
-        payment_method: '',
-        term: '',
+      location: {
+        street: {
+          number: row.location_street_number,
+          name: row.location_street_name,
+        },
+        city: row.location_city,
+        state: row.location_state,
+        country: row.location_country,
+        postcode: row.location_postcode,
+        coordinates: {
+          latitude: row.location_coordinates_latitude,
+          longitude: row.location_coordinates_longitude,
+        },
+        timezone: {
+          offset: row.location_timezone_offset,
+          description: row.location_timezone_description,
+        },
       },
+      email: row.email,
+      login: {
+        uuid: row.login_uuid,
+        username: row.login_username,
+      },
+      dob: {
+        date: row.dob_date,
+        age: row.dob_age,
+      },
+      registered: {
+        date: row.registered_date,
+        age: row.registered_age,
+      },
+      phone: row.phone,
+      cell: row.cell,
+      id: { // Recria o objeto 'id' original da API
+        name: row.id_name,
+        value: row.id_value,
+      },
+      picture: {
+        large: row.picture_large,
+        medium: row.picture_medium,
+        thumbnail: row.picture_thumbnail,
+      },
+      nat: row.nat,
     };
   }
 
-  /**
-   * Busca employment de um usuário
-   */
-  private async getEmployment(userId: number): Promise<{ title: string; key_skill: string } | null> {
-    return new Promise((resolve, reject) => {
-      this.db.get(
-        'SELECT title, key_skill FROM employment WHERE user_id = ?',
-        [userId],
-        (err, row: any) => {
-          if (err) {
-            reject(err);
-            return;
-          }
-          resolve(row || null);
-        }
-      );
-    });
-  }
-
-  /**
-   * Busca address de um usuário
-   */
-  private async getAddress(userId: number): Promise<any | null> {
-    return new Promise((resolve, reject) => {
-      this.db.get(
-        'SELECT city, street_name, street_address, zip_code, state, country, lng, lat FROM address WHERE user_id = ?',
-        [userId],
-        (err, row: any) => {
-          if (err) {
-            reject(err);
-            return;
-          }
-          resolve(row || null);
-        }
-      );
-    });
-  }
-
-  /**
-   * Busca credit_card de um usuário
-   */
-  private async getCreditCard(userId: number): Promise<{ cc_number: string } | null> {
-    return new Promise((resolve, reject) => {
-      this.db.get(
-        'SELECT cc_number FROM credit_card WHERE user_id = ?',
-        [userId],
-        (err, row: any) => {
-          if (err) {
-            reject(err);
-            return;
-          }
-          resolve(row ? { cc_number: row.cc_number } : null);
-        }
-      );
-    });
-  }
-
-  /**
-   * Busca subscription de um usuário
-   */
-  private async getSubscription(userId: number): Promise<any | null> {
-    return new Promise((resolve, reject) => {
-      this.db.get(
-        'SELECT plan, status, payment_method, term FROM subscription WHERE user_id = ?',
-        [userId],
-        (err, row: any) => {
-          if (err) {
-            reject(err);
-            return;
-          }
-          resolve(row || null);
-        }
-      );
-    });
-  }
 
   /**
    * Adiciona usuários ao banco de dados
    */
-  async addUsers(users: User[]): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const db = this.db; // Referência para usar nos callbacks
-      db.serialize(() => {
-        db.run('BEGIN TRANSACTION');
+  async addUsers(users: User[], owner_id: number): Promise<void> {
+    // SQL para inserção (ignora conflito no login_uuid)
+    const sql = `
+      INSERT INTO users (
+        owner_id, gender, name_title, name_first, name_last,
+        location_street_number, location_street_name, location_city, location_state, location_country, location_postcode,
+        location_coordinates_latitude, location_coordinates_longitude, location_timezone_offset, location_timezone_description,
+        email, login_uuid, login_username,
+        dob_date, dob_age, registered_date, registered_age, phone, cell,
+        id_name, id_value, picture_large, picture_medium, picture_thumbnail, nat
+      ) VALUES (
+        $owner_id, $gender, $name_title, $name_first, $name_last,
+        $location_street_number, $location_street_name, $location_city, $location_state, $location_country, $location_postcode,
+        $location_coordinates_latitude, $location_coordinates_longitude, $location_timezone_offset, $location_timezone_description,
+        $email, $login_uuid, $login_username,
+        $dob_date, $dob_age, $registered_date, $registered_age, $phone, $cell,
+        $id_name, $id_value, $picture_large, $picture_medium, $picture_thumbnail, $nat
+      ) ON CONFLICT(login_uuid) DO NOTHING
+    `;
 
-        let processedCount = 0;
-        const totalUsers = users.length;
-
-        users.forEach((user) => {
-          const userData = this.userToDb(user);
-
-          // Insere usuário principal
-          db.run(
-            `INSERT INTO users (uid, first_name, last_name, username, email, avatar, gender, phone_number, social_insurance_number, date_of_birth)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [
-              userData.uid,
-              userData.first_name,
-              userData.last_name,
-              userData.username,
-              userData.email,
-              userData.avatar,
-              userData.gender,
-              userData.phone_number,
-              userData.social_insurance_number,
-              userData.date_of_birth,
-            ],
-            function (err: Error | null) {
-              if (err) {
-                db.run('ROLLBACK');
-                reject(err);
-                return;
-              }
-
-              const userId = this.lastID;
-
-              // Insere employment
-              if (user.employment) {
-                db.run(
-                  'INSERT INTO employment (user_id, title, key_skill) VALUES (?, ?, ?)',
-                  [userId, user.employment.title || '', user.employment.key_skill || '']
-                );
-              }
-
-              // Insere address
-              if (user.address) {
-                db.run(
-                  `INSERT INTO address (user_id, city, street_name, street_address, zip_code, state, country, lng, lat)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                  [
-                    userId,
-                    user.address.city || '',
-                    user.address.street_name || '',
-                    user.address.street_address || '',
-                    user.address.zip_code || '',
-                    user.address.state || '',
-                    user.address.country || '',
-                    user.address.lng || 0,
-                    user.address.lat || 0,
-                  ]
-                );
-              }
-
-              // Insere credit_card
-              if (user.credit_card) {
-                db.run(
-                  'INSERT INTO credit_card (user_id, cc_number) VALUES (?, ?)',
-                  [userId, user.credit_card.cc_number || '']
-                );
-              }
-
-              // Insere subscription
-              if (user.subscription) {
-                db.run(
-                  `INSERT INTO subscription (user_id, plan, status, payment_method, term)
-                   VALUES (?, ?, ?, ?, ?)`,
-                  [
-                    userId,
-                    user.subscription.plan || '',
-                    user.subscription.status || '',
-                    user.subscription.payment_method || '',
-                    user.subscription.term || '',
-                  ]
-                );
-              }
-
-              processedCount++;
-              
-              // Quando todos os usuários foram processados
-              if (processedCount === totalUsers) {
-                db.run('COMMIT', (err: Error | null) => {
-                  if (err) {
-                    db.run('ROLLBACK');
-                    reject(err);
-                    return;
-                  }
-                  resolve();
-                });
-              }
-            }
-          );
-        });
-      });
-    });
+    try {
+      await this.dbRun('BEGIN TRANSACTION');
+      
+      for (const user of users) {
+        const dbData = this.userToDb(user, owner_id);
+        await this.dbRun(sql, dbData);
+      }
+      
+      await this.dbRun('COMMIT');
+    } catch (err) {
+      await this.dbRun('ROLLBACK');
+      console.error('Erro ao adicionar usuários em lote:', err);
+      throw new Error('Falha ao adicionar usuários ao banco de dados');
+    }
   }
 
   /**
    * Lista todos os usuários do banco
    */
-  async getAllUsers(): Promise<User[]> {
-    return new Promise((resolve, reject) => {
-      this.db.all('SELECT * FROM users ORDER BY id', [], async (err, rows: any[]) => {
-        if (err) {
-          reject(err);
-          return;
-        }
-
-        try {
-          const users = await Promise.all(rows.map((row) => this.dbToUser(row)));
-          resolve(users);
-        } catch (error) {
-          reject(error);
-        }
-      });
-    });
+  async getAllUsers(owner_id: number): Promise<StoredUser[]> {
+    try {
+      const rows = await this.dbAll('SELECT * FROM users WHERE owner_id = ? ORDER BY db_id', [owner_id]);
+      // dbToUser é síncrono agora
+      return rows.map(this.dbToUser);
+    } catch (error) {
+      console.error('Erro ao buscar todos os usuários:', error);
+      throw error;
+    }
   }
 
   /**
-   * Busca um usuário por ID
+   * Busca um usuário pelo ID interno do banco
    */
-  async getUserById(id: number): Promise<User | null> {
-    return new Promise((resolve, reject) => {
-      this.db.get('SELECT * FROM users WHERE id = ?', [id], async (err, row: any) => {
-        if (err) {
-          reject(err);
-          return;
-        }
-
-        if (!row) {
-          resolve(null);
-          return;
-        }
-
-        try {
-          const user = await this.dbToUser(row);
-          resolve(user);
-        } catch (error) {
-          reject(error);
-        }
-      });
-    });
+  async getUserById(db_id: number, owner_id: number): Promise<StoredUser | null> {
+    try {
+      const row = await this.dbGet('SELECT * FROM users WHERE db_id = ? AND owner_id = ?', [db_id, owner_id]);
+      return this.dbToUser(row);
+    } catch (error) {
+      console.error('Erro ao buscar usuário por ID:', error);
+      throw error;
+    }
   }
 
   /**
-   * Atualiza um usuário
+   * Atualiza um usuário (usando deep merge)
    */
-  async updateUser(id: number, updatedUser: Partial<User>): Promise<User | null> {
-    return new Promise((resolve, reject) => {
-      const db = this.db; // Referência para usar nos callbacks
-      db.serialize(() => {
-        db.run('BEGIN TRANSACTION');
+  async updateUser(db_id: number, owner_id: number, updatedData: Partial<User>): Promise<StoredUser | null> {
+    try {
+      // 1. Busca o usuário existente
+      const existingUser = await this.getUserById(db_id, owner_id);
+      if (!existingUser) {
+        return null;
+      }
 
-        // Atualiza tabela principal
-        if (updatedUser.first_name || updatedUser.last_name || updatedUser.email) {
-          const updates: string[] = [];
-          const values: any[] = [];
+      // 2. Mescla profundamente os dados antigos com os novos
+      const mergedUser: StoredUser = deepMerge({}, existingUser, updatedData);
 
-          if (updatedUser.first_name) {
-            updates.push('first_name = ?');
-            values.push(updatedUser.first_name);
-          }
-          if (updatedUser.last_name) {
-            updates.push('last_name = ?');
-            values.push(updatedUser.last_name);
-          }
-          if (updatedUser.email) {
-            updates.push('email = ?');
-            values.push(updatedUser.email);
-          }
-          if (updatedUser.username) {
-            updates.push('username = ?');
-            values.push(updatedUser.username);
-          }
-          if (updatedUser.avatar) {
-            updates.push('avatar = ?');
-            values.push(updatedUser.avatar);
-          }
-          if (updatedUser.gender) {
-            updates.push('gender = ?');
-            values.push(updatedUser.gender);
-          }
-          if (updatedUser.phone_number) {
-            updates.push('phone_number = ?');
-            values.push(updatedUser.phone_number);
-          }
-          if (updatedUser.social_insurance_number) {
-            updates.push('social_insurance_number = ?');
-            values.push(updatedUser.social_insurance_number);
-          }
-          if (updatedUser.date_of_birth) {
-            updates.push('date_of_birth = ?');
-            values.push(updatedUser.date_of_birth);
-          }
+      // 3. Converte o usuário mesclado de volta para o formato do DB (chaves com $)
+      const dbData = this.userToDb(mergedUser, owner_id);
+      
+      // Adiciona o db_id para a cláusula WHERE
+      dbData.$db_id = db_id;
+      dbData.$owner_id = owner_id; // Garante o owner_id no 'where' também
 
-          updates.push('updated_at = CURRENT_TIMESTAMP');
-          values.push(id);
+      // 4. Gera e executa o UPDATE
+      // (Remove o $owner_id e $db_id dos campos de SET, eles são para o WHERE)
+      const setFields = Object.keys(dbData)
+                              .filter(key => key !== '$db_id' && key !== '$owner_id')
+                              .map(key => `${key.substring(1)} = ${key}`) // ex: name_first = $name_first
+                              .join(', ');
 
-          db.run(
-            `UPDATE users SET ${updates.join(', ')} WHERE id = ?`,
-            values,
-            (err: Error | null) => {
-              if (err) {
-                db.run('ROLLBACK');
-                reject(err);
-                return;
-              }
-            }
-          );
-        }
+      const sql = `
+        UPDATE users SET ${setFields}
+        WHERE db_id = $db_id AND owner_id = $owner_id
+      `;
+      
+      await this.dbRun(sql, dbData);
 
-        // Atualiza tabelas relacionadas
-        if (updatedUser.employment) {
-          db.run(
-            `UPDATE employment SET title = ?, key_skill = ? WHERE user_id = ?`,
-            [
-              updatedUser.employment.title || '',
-              updatedUser.employment.key_skill || '',
-              id,
-            ],
-            (err: Error | null) => {
-              if (err) {
-                console.warn('Erro ao atualizar employment:', err);
-              }
-            }
-          );
-        }
+      // 5. Retorna o usuário atualizado
+      return this.getUserById(db_id, owner_id);
 
-        if (updatedUser.address) {
-          db.run(
-            `UPDATE address SET city = ?, street_name = ?, street_address = ?, zip_code = ?, state = ?, country = ?, lng = ?, lat = ? WHERE user_id = ?`,
-            [
-              updatedUser.address.city || '',
-              updatedUser.address.street_name || '',
-              updatedUser.address.street_address || '',
-              updatedUser.address.zip_code || '',
-              updatedUser.address.state || '',
-              updatedUser.address.country || '',
-              updatedUser.address.lng || 0,
-              updatedUser.address.lat || 0,
-              id,
-            ],
-            (err: Error | null) => {
-              if (err) {
-                console.warn('Erro ao atualizar address:', err);
-              }
-            }
-          );
-        }
-
-        if (updatedUser.credit_card) {
-          db.run(
-            `UPDATE credit_card SET cc_number = ? WHERE user_id = ?`,
-            [updatedUser.credit_card.cc_number || '', id],
-            (err: Error | null) => {
-              if (err) {
-                console.warn('Erro ao atualizar credit_card:', err);
-              }
-            }
-          );
-        }
-
-        if (updatedUser.subscription) {
-          db.run(
-            `UPDATE subscription SET plan = ?, status = ?, payment_method = ?, term = ? WHERE user_id = ?`,
-            [
-              updatedUser.subscription.plan || '',
-              updatedUser.subscription.status || '',
-              updatedUser.subscription.payment_method || '',
-              updatedUser.subscription.term || '',
-              id,
-            ],
-            (err: Error | null) => {
-              if (err) {
-                console.warn('Erro ao atualizar subscription:', err);
-              }
-            }
-          );
-        }
-
-        db.run('COMMIT', async (err: Error | null) => {
-          if (err) {
-            db.run('ROLLBACK');
-            reject(err);
-            return;
-          }
-
-          try {
-            const user = await this.getUserById(id);
-            resolve(user);
-          } catch (error) {
-            reject(error);
-          }
-        });
-      });
-    });
+    } catch (error) {
+      console.error('Erro ao atualizar usuário:', error);
+      throw error;
+    }
   }
 
   /**
    * Remove um usuário
    */
-  async deleteUser(id: number): Promise<boolean> {
-    return new Promise((resolve, reject) => {
-      this.db.run('DELETE FROM users WHERE id = ?', [id], function (err) {
-        if (err) {
-          reject(err);
-          return;
-        }
-        resolve(this.changes > 0);
-      });
-    });
+  async deleteUser(db_id: number, owner_id: number): Promise<boolean> {
+    try {
+      const result = await this.dbRun('DELETE FROM users WHERE db_id = ? AND owner_id = ?', [db_id, owner_id]);
+      return result.changes > 0;
+    } catch (error) {
+      console.error('Erro ao deletar usuário:', error);
+      throw error;
+    }
   }
 
   /**
    * Busca usuários com base em critérios
    */
   async searchUsers(
+    owner_id: number,
     searchTerm: string,
-    fields: string[] = ['first_name', 'last_name', 'email']
-  ): Promise<User[]> {
-    return new Promise((resolve, reject) => {
+    // Campos padrão atualizados para o schema do DB
+    fields: string[] = ['name_first', 'name_last', 'email', 'login_username']
+  ): Promise<StoredUser[]> {
+    try {
       const lowerSearchTerm = `%${searchTerm.toLowerCase()}%`;
       
-      // Cria condições de busca para os campos especificados
+      // Cria condições de busca para os campos do DB
       const conditions = fields.map((field) => {
+        // Validação simples para evitar SQL injection no nome do campo
+        if (!/^[a-zA-Z0-9_]+$/.test(field)) {
+          throw new Error(`Campo de busca inválido: ${field}`);
+        }
         return `LOWER(${field}) LIKE ?`;
       });
 
-      const query = `SELECT * FROM users WHERE ${conditions.join(' OR ')} ORDER BY id`;
-      const params = fields.map(() => lowerSearchTerm);
+      const query = `
+        SELECT * FROM users
+        WHERE owner_id = ? AND (${conditions.join(' OR ')})
+        ORDER BY db_id
+      `;
+      
+      // Parâmetros: [owner_id, term, term, term, ...]
+      const params = [owner_id, ...fields.map(() => lowerSearchTerm)];
 
-      this.db.all(query, params, async (err, rows: any[]) => {
-        if (err) {
-          reject(err);
-          return;
-        }
+      const rows = await this.dbAll(query, params);
+      return rows.map(this.dbToUser);
 
-        try {
-          const users = await Promise.all(rows.map((row) => this.dbToUser(row)));
-          resolve(users);
-        } catch (error) {
-          reject(error);
-        }
-      });
-    });
+    } catch (error) {
+      console.error('Erro ao buscar usuários:', error);
+      throw error;
+    }
   }
 
   /**
    * Fecha a conexão com o banco
    */
-  close(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      this.db.close((err) => {
-        if (err) {
-          reject(err);
-          return;
-        }
-        resolve();
-      });
-    });
+  async close(): Promise<void> {
+    try {
+      await this.dbClose();
+    } catch (error) {
+      console.error('Erro ao fechar o banco de dados:', error);
+      throw error;
+    }
   }
 }
-
