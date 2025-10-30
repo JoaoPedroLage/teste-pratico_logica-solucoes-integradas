@@ -35,7 +35,7 @@ Lista de usuários com suporte a:
 ### UserForm
 Formulário modal para edição de usuários.
 
-### SearchBar
+### SearchTab
 Barra de pesquisa com busca em tempo real.
 
 ## Funcionalidades
