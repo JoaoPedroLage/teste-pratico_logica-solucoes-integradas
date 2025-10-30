@@ -11,29 +11,34 @@ import ApiTab from './ApiTab';
 import SavedUsersTab from './SavedUsersTab';
 import SearchTab from './SearchTab';
 import { User } from './types';
+import EditUserModal from '../components/EditUserModal';
 
+// Tipo para usuários que vêm do nosso banco de dados (API /api/users)
+// Eles têm a mesma estrutura do User, mas com um db_id
+type SavedUser = User & { db_id: number };
 
 export default function DashboardContent() {
   const { user: authUser, token, logout } = useAuth();
   const { showToast } = useToast();
   const router = useRouter();
-  const [users, setUsers] = useState<User[]>([]);
-  const [savedUsers, setSavedUsers] = useState<User[]>([]);
+  const [users, setUsers] = useState<User[]>([]); // Usuários da API externa
+  const [savedUsers, setSavedUsers] = useState<SavedUser[]>([]); // Usuários do nosso DB
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'api' | 'saved' | 'search'>('api');
-  const [selectedUsers, setSelectedUsers] = useState<User[]>([]);
-  const [selectedSavedUsers, setSelectedSavedUsers] = useState<number[]>([]); // IDs dos usuários salvos selecionados
+  const [selectedUsers, setSelectedUsers] = useState<User[]>([]); // Seleção da API externa
+  const [selectedSavedUsers, setSelectedSavedUsers] = useState<SavedUser[]>([]); // Seleção do nosso DB
   const [searchTerm, setSearchTerm] = useState('');
-  const [searchResults, setSearchResults] = useState<User[]>([]);
+  const [searchResults, setSearchResults] = useState<SavedUser[]>([]); // Resultados da busca no nosso DB
   const [apiBaseUrl, setApiBaseUrl] = useState<string>('');
   const [confirmDialog, setConfirmDialog] = useState<{
     isOpen: boolean;
-    userId?: number;
-    userIds?: number[];
+    userId?: number; // Este será o db_id
+    userIds?: number[]; // Este será um array de db_ids
     message?: string;
   }>({ isOpen: false });
-  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [editingUser, setEditingUser] = useState<SavedUser | null>(null);
   const [savingEdit, setSavingEdit] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     getBackendApiUrl().then(url => {
@@ -44,15 +49,37 @@ export default function DashboardContent() {
     });
   }, []);
 
-  const fetchUsersFromApi = async (size: number = 10) => {
+  // Busca simples por quantidade (sem filtros)
+  const fetchSimpleAmount = async (size?: number) => {
+    const finalSize = Number(size) > 0 ? Number(size) : 20; // default se não especificado
+    await fetchUsersFromApi(finalSize);
+  };
+
+  // Busca com filtros suportados pela Random User API (gender/nat)
+  const fetchWithFilter = async (size?: number, gender?: string, nat?: string) => {
+    const finalSize = Number(size) > 0 ? Number(size) : 20;
+    await fetchUsersFromApi(finalSize, gender, nat);
+  };
+
+  // Função base usada pela ApiTab
+  const fetchUsersFromApi = async (size?: number, gender?: string, nat?: string) => {
     setLoading(true);
     try {
       const url = await getBackendApiUrl();
       setApiBaseUrl(url);
-      const apiUrl = `${url}/api?size=${size}`;
+      const params: string[] = [];
+      const finalSize = Number(size) > 0 ? Number(size) : 20;
+      params.push(`size=${finalSize}`);
+      if (gender) params.push(`gender=${encodeURIComponent(gender)}`);
+      if (nat) params.push(`nat=${encodeURIComponent(nat)}`);
+      const query = params.length ? `?${params.join('&')}` : '';
+      const apiUrl = `${url}/api${query}`;
       const response = await axios.get(apiUrl, {
         timeout: 30000,
-        headers: { Authorization: `Bearer ${token || ''}` },
+        headers: {
+          Authorization: `Bearer ${token || ''}`,
+          'x-owner-id': authUser?.id || '0'
+        },
       });
 
       if (response.data.success && response.data.data) {
@@ -71,7 +98,10 @@ export default function DashboardContent() {
     try {
       const url = await getBackendApiUrl();
       const response = await axios.get(`${url}`, {
-        headers: { Authorization: `Bearer ${token || ''}` },
+        headers: {
+          Authorization: `Bearer ${token || ''}`,
+          'x-owner-id': authUser?.id || '0'
+        },
       });
       if (response.data) {
         setSavedUsers(Array.isArray(response.data) ? response.data : response.data.data || []);
@@ -79,7 +109,7 @@ export default function DashboardContent() {
     } catch (error) {
       console.error('Erro ao carregar usuários salvos:', error);
     }
-  }, [token]);
+  }, [token, authUser]);
 
   useEffect(() => {
     if (activeTab === 'saved') {
@@ -97,7 +127,10 @@ export default function DashboardContent() {
     try {
       const url = await getBackendApiUrl();
       await axios.post(`${url}/save`, selectedUsers, {
-        headers: { Authorization: `Bearer ${token || ''}` },
+        headers: {
+          Authorization: `Bearer ${token || ''}`,
+          'x-owner-id': authUser?.id || '0'
+        },
       });
 
       showToast(`${selectedUsers.length} usuário(s) salvo(s) com sucesso!`, 'success');
@@ -121,7 +154,10 @@ export default function DashboardContent() {
     try {
       const url = await getBackendApiUrl();
       const response = await axios.get(`${url}/search?term=${term}`, {
-        headers: { Authorization: `Bearer ${token || ''}` },
+        headers: {
+          Authorization: `Bearer ${token || ''}`,
+          'x-owner-id': authUser?.id || '0'
+        },
       });
 
       if (response.data) {
@@ -130,7 +166,7 @@ export default function DashboardContent() {
     } catch (error) {
       console.error('Erro ao buscar:', error);
     }
-  }, [token]);
+  }, [token, authUser]);
 
   useEffect(() => {
     if (activeTab === 'search') {
@@ -154,16 +190,16 @@ export default function DashboardContent() {
     if (selectedSavedUsers.length === 0) return;
     setConfirmDialog({
       isOpen: true,
-      userIds: selectedSavedUsers,
+      userIds: selectedSavedUsers.map(u => u.db_id),
       message: `Tem certeza que deseja excluir ${selectedSavedUsers.length} usuário(s) selecionado(s)?`,
     });
   };
 
-  const toggleSavedUserSelection = (userId: number) => {
+  const toggleSavedUserSelection = (user: SavedUser) => {
     setSelectedSavedUsers(prev =>
-      prev.includes(userId)
-        ? prev.filter(id => id !== userId)
-        : [...prev, userId]
+      prev.some(u => u.db_id === user.db_id)
+        ? prev.filter(u => u.db_id !== user.db_id)
+        : [...prev, user]
     );
   };
 
@@ -171,68 +207,91 @@ export default function DashboardContent() {
     if (selectedSavedUsers.length === savedUsers.length) {
       setSelectedSavedUsers([]);
     } else {
-      setSelectedSavedUsers(savedUsers.map(u => u.id));
+      setSelectedSavedUsers(savedUsers);
     }
   };
 
   const handleDeleteConfirm = async () => {
+    if (deleting || loading) return;
+
     // Deletar múltiplos usuários
     if (confirmDialog.userIds && confirmDialog.userIds.length > 0) {
-      setLoading(true);
+      setDeleting(true);
+      // Fecha o diálogo imediatamente para evitar cliques duplicados
+      setConfirmDialog({ isOpen: false });
       try {
         const url = await getBackendApiUrl();
         const deletePromises = confirmDialog.userIds.map(id =>
           axios.delete(`${url}/${id}`, {
-            headers: { Authorization: `Bearer ${token || ''}` },
+            headers: { 
+              Authorization: `Bearer ${token || ''}`,
+              'x-owner-id': authUser?.id || '0'
+            },
           })
         );
-        await Promise.all(deletePromises);
-        showToast(`${confirmDialog.userIds.length} usuário(s) excluído(s) com sucesso!`, 'success');
-        setConfirmDialog({ isOpen: false });
+        const results = await Promise.allSettled(deletePromises);
+        const succeeded = results.filter(r => r.status === 'fulfilled').length;
+        const failed = results.length - succeeded;
+        if (succeeded > 0 && failed === 0) {
+          showToast(`${succeeded} usuário(s) excluído(s) com sucesso!`, 'success');
+        } else if (succeeded > 0 && failed > 0) {
+          showToast(`${succeeded} excluído(s), ${failed} falhou(aram).`, 'warning');
+        } else {
+          showToast('Falha ao excluir usuários selecionados.', 'error');
+        }
         setSelectedSavedUsers([]);
-        loadSavedUsers();
+        await loadSavedUsers();
         if (activeTab === 'search') {
-          searchUsers(searchTerm);
+          await searchUsers(searchTerm);
         }
       } catch (error) {
         console.error('Erro ao excluir usuários:', error);
         showToast('Erro ao excluir usuários', 'error');
       } finally {
-        setLoading(false);
+        setDeleting(false);
       }
       return;
     }
 
-    // Deletar um único usuário
+    // Deletar um único usuário (o ID é db_id)
     if (!confirmDialog.userId) return;
 
+    setDeleting(true);
+    setConfirmDialog({ isOpen: false });
     try {
       const url = await getBackendApiUrl();
       await axios.delete(`${url}/${confirmDialog.userId}`, {
-        headers: { Authorization: `Bearer ${token || ''}` },
+        headers: { 
+          Authorization: `Bearer ${token || ''}`,
+          'x-owner-id': authUser?.id || '0'
+        },
       });
       showToast('Usuário excluído com sucesso!', 'success');
-      setConfirmDialog({ isOpen: false });
-      loadSavedUsers();
+      await loadSavedUsers();
       if (activeTab === 'search') {
-        searchUsers(searchTerm);
+        await searchUsers(searchTerm);
       }
     } catch (error) {
       console.error('Erro ao excluir usuário:', error);
       showToast('Erro ao excluir usuário', 'error');
+    } finally {
+      setDeleting(false);
     }
   };
 
-  const handleEditClick = (user: User) => {
+  const handleEditClick = (user: SavedUser) => {
     setEditingUser(user);
   };
 
-  const handleSaveEdit = async (updatedUser: User) => {
+  const handleSaveEdit = async (updatedUser: SavedUser) => {
     setSavingEdit(true);
     try {
       const url = await getBackendApiUrl();
-      await axios.put(`${url}/${updatedUser.id}`, updatedUser, {
-        headers: { Authorization: `Bearer ${token || ''}` },
+      await axios.put(`${url}/${updatedUser.db_id}`, updatedUser, {
+        headers: {
+          Authorization: `Bearer ${token || ''}`,
+          'x-owner-id': authUser?.id || '0'
+        },
       });
       showToast('Usuário atualizado com sucesso!', 'success');
       setEditingUser(null);
@@ -252,7 +311,10 @@ export default function DashboardContent() {
     try {
       const url = await getBackendApiUrl();
       const response = await axios.get(`${url}/download/csv`, {
-        headers: { Authorization: `Bearer ${token || ''}` },
+        headers: {
+          Authorization: `Bearer ${token || ''}`,
+          'x-owner-id': authUser?.id || '0'
+        },
         responseType: 'blob',
       });
 
@@ -260,7 +322,7 @@ export default function DashboardContent() {
       const downloadUrl = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = downloadUrl;
-      link.download = 'users.csv';
+      link.download = `users_${authUser?.id || 'export'}.csv`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -288,7 +350,7 @@ export default function DashboardContent() {
                 <div className="flex items-center space-x-2 min-w-0">
                   <div className="w-7 h-7 sm:w-8 sm:h-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center flex-shrink-0">
                     <svg className="w-4 h-4 sm:w-5 sm:h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 accounts0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
                     </svg>
                   </div>
                   <h1 className="text-base sm:text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent truncate">
@@ -346,6 +408,7 @@ export default function DashboardContent() {
             </div>
 
             <div className="p-4 sm:p-6">
+
               {activeTab === 'api' && (
                 <ApiTab
                   users={users}
@@ -353,102 +416,14 @@ export default function DashboardContent() {
                   loading={loading}
                   onFetchUsers={fetchUsersFromApi}
                   onToggleSelection={(user) => {
-                    if (selectedUsers.some(u => u.id === user.id)) {
-                      setSelectedUsers(selectedUsers.filter(u => u.id !== user.id));
+                    if (selectedUsers.some(u => u.login.uuid === user.login.uuid)) {
+                      setSelectedUsers(selectedUsers.filter(u => u.login.uuid !== user.login.uuid));
                     } else {
                       setSelectedUsers([...selectedUsers, user]);
                     }
                   }}
                   onSaveUsers={saveUsers}
                 />
-              )}
-
-              {activeTab === 'api' && false && (
-                <div className="space-y-6">
-                  <div className="flex items-center justify-between">
-                    <h2 className="text-2xl font-bold text-gray-900">Usuários da API Externa</h2>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => fetchUsersFromApi(10)}
-                        disabled={loading}
-                        className="px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-105 active:scale-95"
-                      >
-                        {loading ? 'Carregando...' : 'Buscar 10 Usuários'}
-                      </button>
-                      <button
-                        onClick={() => fetchUsersFromApi(20)}
-                        disabled={loading}
-                        className="px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-105 active:scale-95"
-                      >
-                        {loading ? 'Carregando...' : 'Buscar 20 Usuários'}
-                      </button>
-                    </div>
-                  </div>
-
-                  {selectedUsers.length > 0 && (
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center justify-between">
-                      <span className="text-blue-800 font-medium">
-                        {selectedUsers.length} usuário(s) selecionado(s)
-                      </span>
-                      <button
-                        onClick={saveUsers}
-                        disabled={loading}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        Salvar Selecionados
-                      </button>
-                    </div>
-                  )}
-
-                  {users.length > 0 && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {users.map((user) => (
-                        <div
-                          key={user.id}
-                          className={`border-2 rounded-xl p-4 cursor-pointer transition-all ${selectedUsers.some(u => u.id === user.id)
-                            ? 'border-blue-500 bg-blue-50 shadow-md'
-                            : 'border-gray-200 hover:border-gray-300 hover:shadow-md'
-                            }`}
-                          onClick={() => {
-                            if (selectedUsers.some(u => u.id === user.id)) {
-                              setSelectedUsers(selectedUsers.filter(u => u.id !== user.id));
-                            } else {
-                              setSelectedUsers([...selectedUsers, user]);
-                            }
-                          }}
-                        >
-                          <div className="flex items-center space-x-3">
-                            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold text-lg">
-                              {user.first_name[0]}{user.last_name[0]}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-gray-900 truncate">
-                                {user.first_name} {user.last_name}
-                              </p>
-                              <p className="text-xs text-gray-500 truncate">{user.email}</p>
-                              <p className="text-xs text-gray-400 mt-1">{user.employment?.title || 'Sem título'}</p>
-                            </div>
-                          </div>
-                          <div className="mt-3 flex justify-end" onClick={(e) => e.stopPropagation()}>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                // TODO: Implementar visualização
-                              }}
-                              className="text-blue-600 hover:text-blue-700 p-2 hover:bg-blue-100 rounded-lg transition-colors"
-                              title="Visualizar detalhes"
-                            >
-                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                              </svg>
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
               )}
 
               {activeTab === 'saved' && (
@@ -469,129 +444,6 @@ export default function DashboardContent() {
                 />
               )}
 
-              {activeTab === 'saved' && false && (
-                <div className="space-y-6">
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <h2 className="text-2xl font-bold text-gray-900">Usuários Salvos</h2>
-                      {savedUsers.length > 0 && (
-                        <div className="flex items-center space-x-3">
-                          {/* Botão 1: Baixar CSV (Posição fixa) */}
-                          <button
-                            onClick={handleDownloadCsv}
-                            disabled={loading}
-                            className="px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
-                          >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
-                            <span>Baixar CSV</span>
-                          </button>
-
-                          {/* Botão 2: Selecionar Todos (Posição fixa) */}
-                          <button
-                            onClick={toggleSelectAllSavedUsers}
-                            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
-                          >
-                            {selectedSavedUsers.length === savedUsers.length ? 'Desselecionar Todos' : 'Selecionar Todos'}
-                          </button>
-
-                          {/* Botão 3: Excluir (Aparece no final, condicionalmente) */}
-                          {selectedSavedUsers.length > 0 && (
-                            <button
-                              onClick={handleDeleteMultipleClick}
-                              disabled={loading}
-                              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
-                            >
-                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                              </svg>
-                              <span>Excluir Selecionados ({selectedSavedUsers.length})</span>
-                            </button>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  {savedUsers.length === 0 ? (
-                    <div className="text-center py-12 text-gray-500">
-                      <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-. coche293l-2.414-2.414A1 1 0 006.586 13H4" />
-                      </svg>
-                      <p className="mt-4">Nenhum usuário salvo ainda</p>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {savedUsers.map((user) => {
-                        const isSelected = selectedSavedUsers.includes(user.id);
-                        return (
-                          <div
-                            key={user.id}
-                            className={`border rounded-xl p-4 hover:shadow-lg transition-all cursor-pointer ${isSelected
-                              ? 'border-blue-500 bg-blue-50 shadow-md'
-                              : 'border-gray-200'
-                              }`}
-                            onClick={() => toggleSavedUserSelection(user.id)}
-                          >
-                            <div className="flex items-start justify-between mb-3">
-                              <div className="flex items-center space-x-3 flex-1">
-                                <input
-                                  type="checkbox"
-                                  checked={isSelected}
-                                  onChange={() => toggleSavedUserSelection(user.id)}
-                                  onClick={(e) => e.stopPropagation()}
-                                  className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500 cursor-pointer"
-                                  style={{ display: isSelected ? 'block' : 'none' }}
-                                />
-                                <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-500 rounded-full flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
-                                  {user.first_name[0]}{user.last_name[0]}
-                                </div>
-                                <div className="min-w-0 flex-1">
-                                  <p className="text-sm font-medium text-gray-900 truncate">
-                                    {user.first_name} {user.last_name}
-                                  </p>
-                                  <p className="text-xs text-gray-500 truncate">{user.email}</p>
-                                </div>
-                              </div>
-                              <div className="flex items-center space-x-1" onClick={(e) => e.stopPropagation()}>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleEditClick(user);
-                                  }}
-                                  className="text-blue-600 hover:text-blue-700 p-2 hover:bg-blue-100 rounded-lg transition-colors"
-                                  title="Editar usuário"
-                                >
-                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                  </svg>
-                                </button>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleDeleteClick(user.id);
-                                  }}
-                                  className="text-red-600 hover:text-red-700 p-2 hover:bg-red-100 rounded-lg transition-colors"
-                                  title="Excluir usuário"
-                                >
-                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                  </svg>
-                                </button>
-                              </div>
-                            </div>
-                            <div className="space-y-1 text-xs text-gray-600">
-                              <p><span className="font-medium">Cidade:</span> {user.address?.city || 'N/A'}</p>
-                              <p><span className="font-medium">Cargo:</span> {user.employment?.title || 'N/A'}</p>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              )}
-
               {activeTab === 'search' && (
                 <SearchTab
                   searchTerm={searchTerm}
@@ -602,75 +454,16 @@ export default function DashboardContent() {
                 />
               )}
 
-              {activeTab === 'search' && false && (
-                <div className="space-y-6">
-                  <h2 className="text-2xl font-bold text-gray-900">Pesquisar Usuários</h2>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      placeholder="Digite nome, sobrenome ou email..."
-                      className="w-full px-4 py-3 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                    <svg className="absolute left-3 top-3.5 h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
-                  </div>
-
-                  {searchResults.length > 0 && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {searchResults.map((user) => (
-                        <div key={user.id} className="border border-gray-200 rounded-xl p-4 hover:shadow-lg transition-shadow">
-                          <div className="flex items-center justify-between mb-3">
-                            <div className="flex items-center space-x-3">
-                              <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-white font-bold text-lg">
-                                {user.first_name[0]}{user.last_name[0]}
-                              </div>
-                              <div>
-                                <p className="text-sm font-medium text-gray-900">
-                                  {user.first_name} {user.last_name}
-                                </p>
-                                <p className="text-xs text-gray-500">{user.email}</p>
-                              </div>
-                            </div>
-                            <div className="flex items-center space-x-1">
-                              <button
-                                onClick={() => handleEditClick(user)}
-                                className="text-blue-600 hover:text-blue-700 p-2 hover:bg-blue-50 rounded-lg transition-colors"
-                                title="Editar usuário"
-                              >
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                </svg>
-                              </button>
-                              <button
-                                onClick={() => handleDeleteClick(user.id)}
-                                className="text-red-600 hover:text-red-700 p-2 hover:bg-red-50 rounded-lg transition-colors"
-                                title="Excluir usuário"
-                              >
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                </svg>
-                              </button>
-                            </div>
-                          </div>
-                          <div className="space-y-1 text-xs text-gray-600">
-                            <p><span className="font-medium">Cidade:</span> {user.address?.city || 'N/A'}</p>
-                            <p><span className="font-medium">Cargo:</span> {user.employment?.title || 'N/A'}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {searchTerm && searchResults.length === 0 && (
-                    <div className="text-center py-12 text-gray-500">
-                      <p>Nenhum resultado encontrado</p>
-                    </div>
-                  )}
-                </div>
+              {activeTab === 'search' && editingUser && (
+                <EditUserModal
+                  isOpen={!!editingUser}
+                  user={editingUser}
+                  onSave={handleSaveEdit}
+                  onCancel={() => setEditingUser(null)}
+                  loading={savingEdit}
+                />
               )}
+
             </div>
           </div>
         </main>
@@ -686,7 +479,6 @@ export default function DashboardContent() {
         onConfirm={handleDeleteConfirm}
         onCancel={() => setConfirmDialog({ isOpen: false })}
       />
-
     </>
   );
 }

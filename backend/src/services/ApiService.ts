@@ -41,50 +41,75 @@ export class ApiService {
     const mockUsers: User[] = [];
     const firstNames = ['João', 'Maria', 'Pedro', 'Ana', 'Carlos', 'Julia', 'Rafael', 'Fernanda'];
     const lastNames = ['Silva', 'Santos', 'Oliveira', 'Souza', 'Costa', 'Pereira', 'Almeida', 'Lima'];
-    
+    const cities = ['São Paulo', 'Rio de Janeiro', 'Belo Horizonte', 'Curitiba'];
+    const states = ['SP', 'RJ', 'MG', 'PR'];
+    const countries = ['Brasil'];
+    const nats = ['BR'];
+
     for (let i = 0; i < count; i++) {
-      const firstName = firstNames[Math.floor(Math.random() * firstNames.length)];
-      const lastName = lastNames[Math.floor(Math.random() * lastNames.length)];
-      const id = Date.now() + i;
-      
+      const first = firstNames[Math.floor(Math.random() * firstNames.length)];
+      const last = lastNames[Math.floor(Math.random() * lastNames.length)];
+      const city = cities[Math.floor(Math.random() * cities.length)];
+      const state = states[Math.floor(Math.random() * states.length)];
+      const country = countries[0];
+      const email = `${first.toLowerCase()}.${last.toLowerCase()}${i}@example.com`;
+      const username = `${first.toLowerCase()}.${last.toLowerCase()}${i}`;
+      const phone = `+55 ${Math.floor(10 + Math.random() * 89)} ${Math.floor(1000 + Math.random() * 9000)}-${Math.floor(1000 + Math.random() * 9000)}`;
+      const cell = `+55 ${Math.floor(10 + Math.random() * 89)} 9${Math.floor(1000 + Math.random() * 9000)}-${Math.floor(1000 + Math.random() * 9000)}`;
+
       mockUsers.push({
-        id: id,
-        uid: `mock-uid-${id}`,
-        first_name: firstName,
-        last_name: lastName,
-        username: `${firstName.toLowerCase()}.${lastName.toLowerCase()}`,
-        email: `${firstName.toLowerCase()}.${lastName.toLowerCase()}@example.com`,
-        avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(`${firstName} ${lastName}`)}`,
-        gender: Math.random() > 0.5 ? 'Male' : 'Female',
-        phone_number: `+55${Math.floor(Math.random() * 900000000) + 100000000}`,
-        social_insurance_number: `${Math.floor(Math.random() * 900000000) + 100000000}`,
-        date_of_birth: `${Math.floor(Math.random() * 30) + 1970}-${String(Math.floor(Math.random() * 12) + 1).padStart(2, '0')}-${String(Math.floor(Math.random() * 28) + 1).padStart(2, '0')}`,
-        employment: {
-          title: ['Developer', 'Designer', 'Manager', 'Analyst'][Math.floor(Math.random() * 4)],
-          key_skill: ['Problem solving', 'Communication', 'Leadership'][Math.floor(Math.random() * 3)],
+        gender: Math.random() > 0.5 ? 'male' : 'female',
+        name: {
+          title: Math.random() > 0.5 ? 'Sr.' : 'Sra.',
+          first,
+          last,
         },
-        address: {
-          city: ['São Paulo', 'Rio de Janeiro', 'Belo Horizonte', 'Curitiba'][Math.floor(Math.random() * 4)],
-          street_name: `Rua ${Math.floor(Math.random() * 1000)}`,
-          street_address: `${Math.floor(Math.random() * 9999)}`,
-          zip_code: `${Math.floor(Math.random() * 90000) + 10000}`,
-          state: ['SP', 'RJ', 'MG', 'PR'][Math.floor(Math.random() * 4)],
-          country: 'Brasil',
-          lng: -46.6333 + (Math.random() - 0.5) * 0.1,
-          lat: -23.5505 + (Math.random() - 0.5) * 0.1,
+        location: {
+          street: {
+            number: Math.floor(Math.random() * 9999) + 1,
+            name: `Rua ${Math.floor(Math.random() * 1000)}`,
+          },
+          city,
+          state,
+          country,
+          postcode: `${Math.floor(Math.random() * 90000) + 10000}`,
+          coordinates: {
+            latitude: (-23.5505 + (Math.random() - 0.5) * 0.1).toFixed(6),
+            longitude: (-46.6333 + (Math.random() - 0.5) * 0.1).toFixed(6),
+          },
+          timezone: {
+            offset: '-03:00',
+            description: 'Brasília',
+          },
         },
-        credit_card: {
-          cc_number: `${Math.floor(Math.random() * 9000) + 1000} **** **** ${Math.floor(Math.random() * 9000) + 1000}`,
+        email,
+        login: {
+          uuid: `${Date.now()}-${i}`,
+          username,
         },
-        subscription: {
-          plan: ['Basic', 'Premium', 'Enterprise'][Math.floor(Math.random() * 3)],
-          status: ['Active', 'Inactive'][Math.floor(Math.random() * 2)],
-          payment_method: ['Credit Card', 'Debit Card'][Math.floor(Math.random() * 2)],
-          term: 'Monthly',
+        dob: {
+          date: new Date(1980 + Math.floor(Math.random() * 25), Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1).toISOString(),
+          age: 20 + Math.floor(Math.random() * 40),
         },
+        registered: {
+          date: new Date(2010 + Math.floor(Math.random() * 10), Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1).toISOString(),
+          age: 1 + Math.floor(Math.random() * 10),
+        },
+        phone,
+        cell,
+        id: {
+          name: 'SSN',
+          value: `${Math.floor(Math.random() * 900000000) + 100000000}`,
+        },
+        picture: {
+          large: `https://ui-avatars.com/api/?name=${encodeURIComponent(`${first} ${last}`)}&size=256`,
+          medium: `https://ui-avatars.com/api/?name=${encodeURIComponent(`${first} ${last}`)}&size=128`,
+          thumbnail: `https://ui-avatars.com/api/?name=${encodeURIComponent(`${first} ${last}`)}&size=64`,
+        },
+        nat: nats[0],
       });
     }
-    
+
     return mockUsers;
   }
 
