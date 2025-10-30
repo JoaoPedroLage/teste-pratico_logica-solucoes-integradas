@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import axios from 'axios';
 
 interface AuthUser {
@@ -26,17 +26,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const storedToken = localStorage.getItem('auth_token');
-    if (storedToken) {
-      setToken(storedToken);
-      verifyToken(storedToken);
-    } else {
-      setLoading(false);
-    }
-  }, []);
-
-  const verifyToken = async (tokenToVerify: string) => {
+  const verifyToken = useCallback(async (tokenToVerify: string) => {
     try {
       const backendUrl = await getBackendUrl();
       const response = await axios.get(`${backendUrl}/api/auth/verify`, {
@@ -55,7 +45,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    const storedToken = localStorage.getItem('auth_token');
+    if (storedToken) {
+      setToken(storedToken);
+      verifyToken(storedToken);
+    } else {
+      setLoading(false);
+    }
+  }, [verifyToken]);
 
   const getBackendUrl = async (): Promise<string> => {
     try {

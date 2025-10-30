@@ -1,5 +1,7 @@
 'use client';
 
+import Image from 'next/image';
+
 interface User {
   id: number;
   uid: string;
@@ -121,9 +123,11 @@ export default function UserList({
               )}
               <td className="px-4 py-3">{user.id}</td>
               <td className="px-4 py-3">
-                <img
+                <Image
                   src={user.avatar || '/default-avatar.png'}
                   alt={`${user.first_name} ${user.last_name}`}
+                  width={40}
+                  height={40}
                   className="w-10 h-10 rounded-full"
                   onError={(e) => {
                     (e.target as HTMLImageElement).src =
