@@ -7,7 +7,20 @@ import * as path from 'path';
 import csv from 'csv-parser';
 import { createObjectCsvWriter } from 'csv-writer';
 import { User } from '../models/User';
-import { merge as deepMerge } from 'lodash';
+// Deep merge simples para objetos planos/aninhados
+function deepMerge<T>(target: T, source: Partial<T>): T {
+  const output: any = Array.isArray(target) ? [...(target as any)] : { ...(target as any) };
+  const src: any = source as any;
+  Object.keys(src || {}).forEach((key) => {
+    const v = src[key];
+    if (v && typeof v === 'object' && !Array.isArray(v)) {
+      output[key] = deepMerge(output[key] || {}, v);
+    } else if (v !== undefined) {
+      output[key] = v;
+    }
+  });
+  return output as T;
+}
 
 // Define a lista de cabeçalhos do CSV baseada na interface User
 const csvHeaders = [
@@ -236,7 +249,7 @@ export class CsvService {
   // Ele mescla 'updatedData' *sobre* 'originalUser' e lida com objetos aninhados.
   // Criamos um novo objeto {} como primeiro argumento para não mutar o original
   // (embora neste caso pudéssemos mutar 'originalUser' se quiséssemos).
-  const updatedUser: StoredUser = deepMerge({}, originalUser, updatedData);
+  const updatedUser: StoredUser = deepMerge(originalUser, updatedData as any);
 
   // O csv_id é preservado, pois estava em 'originalUser' e não em 'updatedData'
   users[userIndex] = updatedUser;

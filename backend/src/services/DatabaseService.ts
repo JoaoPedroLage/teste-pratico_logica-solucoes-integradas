@@ -6,8 +6,22 @@ import sqlite3 from 'sqlite3';
 import { promisify } from 'util';
 import * as path from 'path';
 import * as fs from 'fs';
-import { merge as deepMerge } from 'lodash'; // Para o updateUser
 import { User } from '../models/User';
+
+// Deep merge simples para objetos planos/aninhados
+function deepMerge<T>(target: T, source: Partial<T>): T {
+  const output: any = Array.isArray(target) ? [...(target as any)] : { ...(target as any) };
+  const src: any = source as any;
+  Object.keys(src || {}).forEach((key) => {
+    const v = src[key];
+    if (v && typeof v === 'object' && !Array.isArray(v)) {
+      output[key] = deepMerge(output[key] || {}, v);
+    } else if (v !== undefined) {
+      output[key] = v;
+    }
+  });
+  return output as T;
+}
 
 // Define o tipo de retorno: o User da API + o ID do nosso banco
 // O ID do banco (PK) é 'db_id' para evitar conflito com 'user.id' (que é um objeto)
@@ -297,7 +311,7 @@ export class DatabaseService {
       }
 
       // 2. Mescla profundamente os dados antigos com os novos
-      const mergedUser: StoredUser = deepMerge({}, existingUser, updatedData);
+      const mergedUser: StoredUser = deepMerge(existingUser, updatedData as any);
 
       // 3. Converte o usuário mesclado de volta para o formato do DB (chaves com $)
       const dbData = this.userToDb(mergedUser, owner_id);

@@ -19,7 +19,7 @@ const dbPath = process.env.DB_PATH || './data/user_manager.db';
 const csvPath = process.env.CSV_PATH || './data/users.csv';
 
 // Middleware de "Injeção de Dependência"
-const createControllerMiddleware = (req: AppRequest, res: Response, next: NextFunction) => {
+const createControllerMiddleware = (req: Request, res: Response, next: NextFunction) => {
   const ownerIdHeader = req.headers['x-owner-id'];
   const ownerId = parseInt(ownerIdHeader as string, 10);
 
@@ -29,7 +29,7 @@ const createControllerMiddleware = (req: AppRequest, res: Response, next: NextFu
   }
 
   // 3. Crie e anexe uma nova instância do controller para esta requisição
-  req.controller = new UserController(dbPath, csvPath, ownerId);
+  (req as AppRequest).controller = new UserController(dbPath, csvPath, ownerId);
   next();
 };
 
