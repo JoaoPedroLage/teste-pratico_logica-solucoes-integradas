@@ -348,8 +348,15 @@ export class DatabaseService {
    */
   async deleteUser(db_id: number, owner_id: number): Promise<boolean> {
     try {
-      const result = await this.dbRun('DELETE FROM users WHERE db_id = ? AND owner_id = ?', [db_id, owner_id]);
-      return result.changes > 0;
+      return new Promise<boolean>((resolve, reject) => {
+        this.db.run('DELETE FROM users WHERE db_id = ? AND owner_id = ?', [db_id, owner_id], function(err) {
+          if (err) {
+            reject(err);
+            return;
+          }
+          resolve(this.changes > 0);
+        });
+      });
     } catch (error) {
       console.error('Erro ao deletar usuário:', error);
       throw error;

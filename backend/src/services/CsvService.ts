@@ -191,7 +191,23 @@ export class CsvService {
   async addUsers(users: User[]): Promise<void> {
     try {
       const maxId = await this.getMaxCsvId();
-      const rows = users.map((user, index) =>
+      
+      // Filtra usuários inválidos antes de adicionar
+      const validUsers = users.filter((user) => {
+        if (!user) return false;
+        // Verifica se tem pelo menos um campo válido
+        const hasValidData = user.email && user.email.trim() !== '' ||
+                            (user.name?.first && user.name.first.trim() !== '') ||
+                            (user.name?.last && user.name.last.trim() !== '');
+        return hasValidData;
+      });
+      
+      if (validUsers.length === 0) {
+        console.warn('Nenhum usuário válido para adicionar ao CSV');
+        return;
+      }
+      
+      const rows = validUsers.map((user, index) =>
         this.userToCsvRow(user, maxId + index + 1)
       );
       await this.csvWriter.writeRecords(rows);
@@ -210,7 +226,24 @@ export class CsvService {
       fs.createReadStream(this.csvPath)
         .pipe(csv())
         .on('data', (row) => {
-          users.push(this.csvRowToUser(row));
+          // Valida que a linha não está vazia ou inválida
+          // Verifica se tem pelo menos um campo não vazio além do csv_id
+          const hasValidData = Object.keys(row).some(key => {
+            if (key === 'csv_id') return false; // Ignora csv_id na validação
+            const value = row[key];
+            return value != null && String(value).trim() !== '';
+          });
+          
+          // Verifica se csv_id é válido (não vazio e é um número)
+          const csvId = row.csv_id;
+          const hasValidCsvId = csvId != null && 
+                                String(csvId).trim() !== '' && 
+                                !isNaN(Number(csvId));
+          
+          // Só adiciona se tiver dados válidos
+          if (hasValidData && hasValidCsvId) {
+            users.push(this.csvRowToUser(row));
+          }
         })
         .on('end', () => {
           resolve(users);
@@ -329,8 +362,85 @@ export class CsvService {
       // append: false é o padrão, o que sobrescreve o arquivo
     });
 
-    // Mapeia os StoredUser de volta para linhas, passando o csv_id
-    const rows = users.map((user) => this.userToCsvRow(user, user.csv_id));
+    // Filtra usuários inválidos antes de mapear
+    const validUsers = users.filter((user) => {
+      if (!user || user.csv_id == null || isNaN(Number(user.csv_id))) {
+        return false;
+      }
+      // Verifica se tem pelo menos um campo válido além do csv_id
+      const hasValidData = user.email && user.email.trim() !== '' ||
+                          (user.name?.first && user.name.first.trim() !== '') ||
+                          (user.name?.last && user.name.last.trim() !== '');
+      return hasValidData;
+    });
+
+    // Mapeia apenas os usuários válidos
+    const rows = validUsers.map((user) => this.userToCsvRow(user, Number(user.csv_id)));
     await writer.writeRecords(rows);
+  }
+
+  /**
+   * Retorna o caminho do arquivo CSV do usuário
+   */
+  getCsvPath(): string {
+    return this.csvPath;
+  }
+
+  /**
+   * Gera CSV em memória a partir de uma lista de usuários
+   */
+  generateCsvInMemory(users: StoredUser[]): string {
+    // Garante que o cabeçalho seja sempre apenas os títulos, sem dados
+    const header = csvHeaders.map((h) => {
+      const title = String(h.title || '').trim();
+      // Escapa o título se contiver vírgulas ou aspas
+      if (title.includes(',') || title.includes('"')) {
+        return `"${title.replace(/"/g, '""')}"`;
+      }
+      return title;
+    }).join(',');
+
+    // Filtra usuários inválidos antes de processar
+    const validUsers = users.filter((user) => {
+      if (!user || user.csv_id == null || isNaN(Number(user.csv_id))) {
+        return false;
+      }
+      // Verifica se tem pelo menos um campo válido além do csv_id
+      const hasValidData = user.email && user.email.trim() !== '' ||
+                          (user.name?.first && user.name.first.trim() !== '') ||
+                          (user.name?.last && user.name.last.trim() !== '');
+      return hasValidData;
+    });
+
+    // Gera as linhas de dados garantindo a ordem correta dos campos
+    const rows = validUsers.map((user) => {
+      const csvRow = this.userToCsvRow(user, Number(user.csv_id));
+      
+      // Garante que os campos estejam na mesma ordem do cabeçalho
+      return csvHeaders.map((h) => {
+        const value = csvRow[h.id];
+        
+        // Valida que o valor não é undefined ou null antes de converter para string
+        if (value == null || value === undefined) {
+          return '';
+        }
+        
+        const stringValue = String(value).trim();
+        
+        // Escapa valores que contêm vírgulas ou aspas
+        if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+          return `"${stringValue.replace(/"/g, '""')}"`;
+        }
+        
+        return stringValue;
+      }).join(',');
+    }).filter(row => {
+      // Filtra linhas que são apenas vírgulas (vazias)
+      const trimmedRow = row.trim();
+      return trimmedRow !== '' && trimmedRow.split(',').some(field => field.trim() !== '');
+    });
+
+    // Retorna o CSV com cabeçalho e linhas, garantindo que não há dados no cabeçalho
+    return [header, ...rows].join('\n');
   }
 }

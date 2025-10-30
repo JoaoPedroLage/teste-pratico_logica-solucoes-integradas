@@ -1,13 +1,12 @@
 /**
- * Serviço para consumo da API externa random-data-api
+ * Serviço para consumo da API externa Random User API (randomuser.me)
  */
-import axios, { AxiosInstance } from 'axios';
+import axios from 'axios';
 import dns from 'dns';
 import { User } from '../models/User';
 
 export class ApiService {
-  private client: AxiosInstance;
-  private readonly baseUrl = 'https://random-data-api.com/api/v2';
+  private readonly baseUrl = 'https://randomuser.me/api';
   private readonly maxRetries = 3;
   private readonly retryDelay = 1000; // 1 segundo
 
@@ -22,15 +21,6 @@ export class ApiService {
         console.warn('Erro ao configurar DNS alternativo:', error);
       }
     }
-
-    this.client = axios.create({
-      baseURL: this.baseUrl,
-      timeout: 30000,
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      validateStatus: (status) => status < 500,
-    });
   }
 
   private async delay(ms: number): Promise<void> {
@@ -114,9 +104,12 @@ export class ApiService {
   }
 
   /**
-   * Busca usuários da API com retry automático
+   * Busca usuários da Random User API com retry automático
+   * @param size Número de resultados (1-5000)
+   * @param gender Filtro por gênero ('male' ou 'female') - opcional
+   * @param nat Filtro por nacionalidade (ex: 'BR', 'US') - opcional
    */
-  async fetchUsers(size: number = 10, useFallback: boolean = true): Promise<User[]> {
+  async fetchUsers(size: number = 10, gender?: string, nat?: string): Promise<User[]> {
     let lastError: any = null;
     
     for (let attempt = 0; attempt < this.maxRetries; attempt++) {
@@ -127,12 +120,23 @@ export class ApiService {
           await this.delay(delayMs);
         }
         
-        console.log(`Buscando ${size} usuários da API: ${this.baseUrl}/users?size=${size} (tentativa ${attempt + 1})`);
-        const response = await this.client.get<User[]>(`/users?size=${size}`);
-        console.log(`✅ Resposta recebida: ${response.status} - ${response.data?.length || 0} usuários`);
+        // Monta a URL com os parâmetros suportados pela Random User API
+        const params: string[] = [];
+        params.push(`results=${size}`);
+        if (gender) params.push(`gender=${encodeURIComponent(gender)}`);
+        if (nat) params.push(`nat=${encodeURIComponent(nat)}`);
+        const query = params.length ? `?${params.join('&')}` : '';
+        const url = `${this.baseUrl}${query}`;
         
-        if (response.data && Array.isArray(response.data) && response.data.length > 0) {
-          return response.data;
+        console.log(`Buscando ${size} usuários da Random User API: ${url} (tentativa ${attempt + 1})`);
+        const response = await axios.get<{ results: User[] }>(url, {
+          timeout: 30000,
+          validateStatus: (status) => status < 500,
+        });
+        
+        if (response.data && response.data.results && Array.isArray(response.data.results) && response.data.results.length > 0) {
+          console.log(`✅ Resposta recebida: ${response.status} - ${response.data.results.length} usuários`);
+          return response.data.results;
         }
         
         throw new Error('Resposta vazia ou inválida da API');
@@ -145,7 +149,7 @@ export class ApiService {
         }
         
         if (attempt === this.maxRetries - 1) {
-          if ((error.code === 'EAI_AGAIN' || error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') && useFallback) {
+          if ((error.code === 'EAI_AGAIN' || error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED')) {
             console.warn('⚠️ API externa indisponível. Usando dados mock como fallback.');
             return this.generateMockUsers(size);
           }
@@ -162,12 +166,21 @@ export class ApiService {
   }
 
   /**
-   * Busca um único usuário da API
+   * Busca um único usuário da Random User API
    */
   async fetchSingleUser(): Promise<User> {
     try {
-      const response = await this.client.get<User>('/users');
-      return response.data;
+      const url = `${this.baseUrl}?results=1`;
+      const response = await axios.get<{ results: User[] }>(url, {
+        timeout: 30000,
+        validateStatus: (status) => status < 500,
+      });
+      
+      if (response.data && response.data.results && response.data.results.length > 0) {
+        return response.data.results[0];
+      }
+      
+      throw new Error('Resposta vazia ou inválida da API');
     } catch (error) {
       console.error('Erro ao buscar usuário da API:', error);
       throw new Error('Falha ao buscar usuário da API');
