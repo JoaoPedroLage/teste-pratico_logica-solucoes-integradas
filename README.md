@@ -20,6 +20,7 @@ Aplicativo completo para gerenciamento de usuários desenvolvido em Next.js, Typ
   - [Acessar a aplicação](#acessar-a-aplicação)
 - [API Endpoints](#-api-endpoints)
 - [Arquitetura](#-arquitetura)
+- [Esquema do Banco de Dados (SQLite)](#-esquema-do-banco-de-dados-sqlite)
 - [Funcionalidades Detalhadas](#-funcionalidades-detalhadas)
   - [Preservação de Integridade do CSV](#preservação-de-integridade-do-csv)
   - [Persistência Dual (SQLite + CSV)](#persistência-dual-sqlite--csv)
