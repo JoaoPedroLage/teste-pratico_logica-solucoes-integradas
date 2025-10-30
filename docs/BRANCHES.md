@@ -160,7 +160,6 @@ Descrição detalhada (opcional)
 ## Exemplos de Workflow Completo
 
 ### Exemplo 1: Nova Feature
-
 ```bash
 # 1. Criar branch
 git checkout -b feature/adicionar-paginacao
@@ -190,7 +189,6 @@ git push origin --delete feature/adicionar-paginacao
 ```
 
 ### Exemplo 2: Correção de Bug
-
 ```bash
 # 1. Criar branch
 git checkout -b bugfix/corrige-validacao-email
@@ -207,19 +205,77 @@ git merge bugfix/corrige-validacao-email
 git push origin main
 ```
 
-## Branch Protection (Recomendado)
+---
 
-Para produção, configurar no GitHub/GitLab:
-- Requer pull request para merge
-- Requer code review
-- Requer testes passando
-- Bloquear push direto na main
+## Guia Rápido — Branches para as Alterações Recentes
 
-## Resumo
+Execute cada bloco por alteração realizada, abrindo PR e fazendo merge na `main` ao final de cada uma.
 
-- ✅ Usar branches separadas para cada feature
-- ✅ Seguir convenção de nomenclatura
-- ✅ Commits atômicos e descritivos
-- ✅ Sincronizar antes de merge
-- ✅ Deletar branches após merge
-- ✅ Documentar mudanças significativas
+1) Remover campos sensíveis de login (backend CSV/DB)
+```bash
+git checkout -b refactor/remover-login-sensivel
+# edições em backend/src/services/CsvService.ts e DatabaseService.ts
+git add .
+git commit -m "refactor: remove campos sensíveis do login (csv/db)"
+git push origin refactor/remover-login-sensivel
+# abrir PR → merge na main
+git checkout main && git pull && git merge --no-ff refactor/remover-login-sensivel && git push
+```
+
+2) Filtro na API externa e UI de busca
+```bash
+git checkout -b feature/filtro-api-externa
+# edições em backend (ApiService/UserController) e app/dashboard/ApiTab.tsx
+git add .
+git commit -m "feature: adiciona filtros gender/nat e UI de busca"
+git push origin feature/filtro-api-externa
+# PR → merge
+```
+
+3) Padronizar exclusão (db_id) e idempotência
+```bash
+git checkout -b bugfix/exclusao-db-id-idempotente
+# edições em SavedUsersTab, DashboardContent (delete flow) e UserController
+git add .
+git commit -m "bugfix: usa db_id no delete e torna exclusão idempotente"
+git push origin bugfix/exclusao-db-id-idempotente
+# PR → merge
+```
+
+4) Download CSV por usuário (owner)
+```bash
+git checkout -b feature/download-csv-por-owner
+# edições em UserController (downloadCsv)
+git add .
+git commit -m "feature: download de CSV por owner com fallback em memória"
+git push origin feature/download-csv-por-owner
+# PR → merge
+```
+
+5) UX de edição (modal) e campos completos
+```bash
+git checkout -b refactor/edit-user-modal-ux
+# edições em app/components/EditUserModal.tsx
+git add .
+git commit -m "refactor: melhora UX/UI do modal de edição e campos"
+git push origin refactor/edit-user-modal-ux
+# PR → merge
+```
+
+6) Limpeza de logs/comentários
+```bash
+git checkout -b chore/limpeza-logs-comentarios
+# remoção de console.log e comentários não essenciais
+git add .
+git commit -m "chore: remove logs de debug e comentários supérfluos"
+git push origin chore/limpeza-logs-comentarios
+# PR → merge
+```
+
+7) Merge final na main (se fez PRs separados)
+```bash
+git checkout main
+git pull
+# (se necessário) git merge --no-ff <branch>
+git push origin main
+```
