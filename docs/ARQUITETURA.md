@@ -183,6 +183,88 @@ A aplicação utiliza duas formas de persistência simultaneamente:
 - CSV é sincronizado automaticamente após cada operação
 - Na inicialização, sincroniza dados entre SQLite e CSV se houver discrepâncias
 
+## Esquema de Dados (SQLite)
+
+O modelo relacional no SQLite normaliza os dados de usuários e mantém integridade referencial com chaves estrangeiras e exclusão em cascata. Abaixo um detalhamento das tabelas e vínculos.
+
+### Diagrama (alto nível)
+
+```
+users (1) ──< (1:1) employment
+   │
+   ├───────< (1:1) address
+   │
+   ├───────< (1:1) credit_card (user_id UNIQUE)
+   │
+   └───────< (1:1) subscription (user_id UNIQUE)
+
+auth_users (independente)
+```
+
+### Tabelas
+
+- users
+  - id INTEGER PK AUTOINCREMENT
+  - uid TEXT NOT NULL
+  - first_name TEXT NOT NULL
+  - last_name TEXT NOT NULL
+  - username TEXT NOT NULL
+  - email TEXT NOT NULL
+  - avatar TEXT
+  - gender TEXT
+  - phone_number TEXT
+  - social_insurance_number TEXT
+  - date_of_birth TEXT
+  - created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  - updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  - Índices: idx_users_email, idx_users_first_name, idx_users_last_name
+
+- employment (1:1 com users)
+  - id INTEGER PK AUTOINCREMENT
+  - user_id INTEGER NOT NULL FK → users(id) ON DELETE CASCADE
+  - title TEXT
+  - key_skill TEXT
+
+- address (1:1 com users)
+  - id INTEGER PK AUTOINCREMENT
+  - user_id INTEGER NOT NULL FK → users(id) ON DELETE CASCADE
+  - city TEXT
+  - street_name TEXT
+  - street_address TEXT
+  - zip_code TEXT
+  - state TEXT
+  - country TEXT
+  - lng REAL
+  - lat REAL
+
+- credit_card (1:1 com users)
+  - id INTEGER PK AUTOINCREMENT
+  - user_id INTEGER NOT NULL UNIQUE FK → users(id) ON DELETE CASCADE
+  - cc_number TEXT
+
+- subscription (1:1 com users)
+  - id INTEGER PK AUTOINCREMENT
+  - user_id INTEGER NOT NULL UNIQUE FK → users(id) ON DELETE CASCADE
+  - plan TEXT
+  - status TEXT
+  - payment_method TEXT
+  - term TEXT
+
+### Autenticação (tabela separada)
+
+- auth_users
+  - id INTEGER PK AUTOINCREMENT
+  - email TEXT NOT NULL UNIQUE
+  - password TEXT NOT NULL (hash Bcrypt)
+  - name TEXT NOT NULL
+  - created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  - updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  - Índice: idx_auth_users_email
+
+Notas:
+- As operações CRUD de usuários (importados da API/CSV) operam sobre `users` e suas tabelas 1:1.
+- `auth_users` é independente e usada apenas para login/registro, sem vínculo direto com `users`.
+
 ### Preservação de Integridade
 
 **No CSV:**

@@ -473,6 +473,82 @@ O projeto segue os princípios SOLID e Clean Code:
 
 > 📖 **Detalhes da arquitetura**: Consulte [docs/ARQUITETURA.md](./docs/ARQUITETURA.md)
 
+## 🗄️ Esquema do Banco de Dados (SQLite)
+
+O backend utiliza SQLite como fonte primária de dados para usuários salvos, com um modelo relacional normalizado e chaves estrangeiras. Abaixo está um resumo das tabelas, colunas e relacionamentos.
+
+### Visão Geral e Relacionamentos
+
+- **users** (tabela principal)
+  - Relacionamentos 1:1 com: `employment`, `address`, `credit_card`, `subscription`
+  - Exclusão em cascata: ao remover um registro em `users`, os registros relacionados são removidos automaticamente
+
+### Tabelas e Colunas
+
+- **users**
+  - `id` INTEGER PK AUTOINCREMENT
+  - `uid` TEXT NOT NULL
+  - `first_name` TEXT NOT NULL
+  - `last_name` TEXT NOT NULL
+  - `username` TEXT NOT NULL
+  - `email` TEXT NOT NULL
+  - `avatar` TEXT
+  - `gender` TEXT
+  - `phone_number` TEXT
+  - `social_insurance_number` TEXT
+  - `date_of_birth` TEXT
+  - `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP
+  - `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP
+  - Índices: `idx_users_email`, `idx_users_first_name`, `idx_users_last_name`
+
+- **employment** (1:1 com `users`)
+  - `id` INTEGER PK AUTOINCREMENT
+  - `user_id` INTEGER NOT NULL FK → `users(id)` ON DELETE CASCADE
+  - `title` TEXT
+  - `key_skill` TEXT
+
+- **address** (1:1 com `users`)
+  - `id` INTEGER PK AUTOINCREMENT
+  - `user_id` INTEGER NOT NULL FK → `users(id)` ON DELETE CASCADE
+  - `city` TEXT
+  - `street_name` TEXT
+  - `street_address` TEXT
+  - `zip_code` TEXT
+  - `state` TEXT
+  - `country` TEXT
+  - `lng` REAL
+  - `lat` REAL
+
+- **credit_card** (1:1 com `users`)
+  - `id` INTEGER PK AUTOINCREMENT
+  - `user_id` INTEGER NOT NULL UNIQUE FK → `users(id)` ON DELETE CASCADE
+  - `cc_number` TEXT
+
+- **subscription** (1:1 com `users`)
+  - `id` INTEGER PK AUTOINCREMENT
+  - `user_id` INTEGER NOT NULL UNIQUE FK → `users(id)` ON DELETE CASCADE
+  - `plan` TEXT
+  - `status` TEXT
+  - `payment_method` TEXT
+  - `term` TEXT
+
+### Tabela de Autenticação
+
+A autenticação utiliza uma tabela separada, independente das tabelas de domínio de usuários salvos:
+
+- **auth_users**
+  - `id` INTEGER PK AUTOINCREMENT
+  - `email` TEXT NOT NULL UNIQUE
+  - `password` TEXT NOT NULL (hash Bcrypt)
+  - `name` TEXT NOT NULL
+  - `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP
+  - `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP
+  - Índice: `idx_auth_users_email`
+
+Notas:
+- A tabela `auth_users` é usada por recursos de login/registro e não se relaciona com a tabela `users` de dados externos/CSV.
+- As operações CRUD de usuários (salvos a partir da API/CSV) atuam sobre `users` e suas tabelas 1:1 relacionadas.
+
 ## 🔍 Funcionalidades Detalhadas
 
 ### Preservação de Integridade do CSV
