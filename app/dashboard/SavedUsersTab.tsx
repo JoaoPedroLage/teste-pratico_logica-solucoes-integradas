@@ -1,22 +1,26 @@
 'use client';
 
+import { useState } from 'react';
 import { User } from './types';
 import EditUserModal from '../components/EditUserModal';
 
+// Tipo para usuários salvos no banco que possuem db_id
+type SavedUser = User & { db_id: number };
+
 interface SavedUsersTabProps {
-  savedUsers: User[];
-  selectedSavedUsers: number[];
+  savedUsers: SavedUser[];
+  selectedSavedUsers: SavedUser[];
   loading: boolean;
   savingEdit: boolean;
-  onToggleSelection: (userId: number) => void;
+  onToggleSelection: (user: SavedUser) => void;
   onSelectAll: () => void;
   onDeleteMultiple: () => void;
-  onDeleteClick: (id: number) => void;
-  onEditClick: (user: User) => void;
-  onSaveEdit: (user: User) => Promise<void>;
-  onDownloadCsv: () => Promise<void>;
-  editingUser: User | null;
-  onCloseEdit: () => void;
+  onDeleteClick: (id: number) => void; // recebe db_id
+  onEditClick: (user: SavedUser) => void;
+  onSaveEdit: (user: SavedUser) => void;
+  onDownloadCsv: () => void;
+  editingUser?: SavedUser | null;
+  onCloseEdit?: () => void;
 }
 
 export default function SavedUsersTab({
@@ -31,9 +35,26 @@ export default function SavedUsersTab({
   onEditClick,
   onSaveEdit,
   onDownloadCsv,
-  editingUser,
-  onCloseEdit,
 }: SavedUsersTabProps) {
+  const [viewingUser, setViewingUser] = useState<SavedUser | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+
+  const handleEditClick = (user: SavedUser) => {
+    setViewingUser(user);
+    setIsEditing(true);
+  };
+
+  const handleSaveEdit = async (user: SavedUser) => {
+    await onSaveEdit(user);
+    setViewingUser(null);
+    setIsEditing(false);
+  };
+
+  const handleCloseModal = () => {
+    setViewingUser(null);
+    setIsEditing(false);
+  };
+
   return (
     <>
       <div className="space-y-4 sm:space-y-6">
@@ -53,7 +74,6 @@ export default function SavedUsersTab({
                   <span className="hidden sm:inline">Baixar CSV</span>
                   <span className="sm:hidden">CSV</span>
                 </button>
-
 
                 <button
                   onClick={onSelectAll}
@@ -80,6 +100,7 @@ export default function SavedUsersTab({
             )}
           </div>
         </div>
+
         {savedUsers.length === 0 ? (
           <div className="text-center py-12 text-gray-500">
             <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -90,68 +111,49 @@ export default function SavedUsersTab({
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
             {savedUsers.map((user) => {
-              const isSelected = selectedSavedUsers.includes(user.id);
+              const isSelected = selectedSavedUsers.some(u => u.db_id === user.db_id);
               return (
                 <div
-                  key={user.id}
-                  className={`border rounded-xl p-4 sm:p-4 active:shadow-lg transition-all cursor-pointer touch-manipulation active:scale-[0.98] ${isSelected
+                  key={user.db_id}
+                  className={`border-2 rounded-xl p-4 sm:p-4 cursor-pointer transition-all touch-manipulation active:scale-[0.98] ${isSelected
                     ? 'border-blue-500 bg-blue-50 shadow-md'
-                    : 'border-gray-200'
-                    }`}
-                  onClick={() => onToggleSelection(user.id)}
+                    : 'border-gray-200 active:border-gray-300 active:shadow-md'
+                  }`}
+                  onClick={() => onToggleSelection(user)}
                 >
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center space-x-3 flex-1">
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() => onToggleSelection(user.id)}
-                        onClick={(e) => e.stopPropagation()}
-                        className="w-5 h-5 sm:w-5 sm:h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500 cursor-pointer touch-manipulation min-w-[20px] min-h-[20px]"
-                        style={{ display: isSelected ? 'block' : 'none' }}
-                      />
-                      <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-500 rounded-full flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
-                        {user.first_name[0]}{user.last_name[0]}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-gray-900 truncate">
-                          {user.first_name} {user.last_name}
-                        </p>
-                        <p className="text-xs text-gray-500 truncate">{user.email}</p>
-                      </div>
+                  <div className="flex items-center space-x-3">
+                    <div className="w-12 h-12 sm:w-12 sm:h-12 bg-gradient-to-br from-green-500 to-emerald-500 rounded-full flex items-center justify-center text-white font-bold text-base sm:text-lg flex-shrink-0">
+                      {(user.name?.first?.[0] || '')}{(user.name?.last?.[0] || '')}
                     </div>
-                    <div className="flex items-center space-x-1" onClick={(e) => e.stopPropagation()}>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onEditClick(user);
-                        }}
-                        className="text-blue-600 hover:text-blue-700 active:text-blue-800 p-2.5 hover:bg-blue-100 active:bg-blue-200 rounded-lg transition-colors touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center"
-                        title="Editar usuário"
-                        aria-label="Editar usuário"
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                        </svg>
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onDeleteClick(user.id);
-                        }}
-                        className="text-red-600 hover:text-red-700 active:text-red-800 p-2.5 hover:bg-red-100 active:bg-red-200 rounded-lg transition-colors touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center"
-                        title="Excluir usuário"
-                        aria-label="Excluir usuário"
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                      </button>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm sm:text-sm font-medium text-gray-900 truncate">
+                        {user.name?.first} {user.name?.last}
+                      </p>
+                      <p className="text-xs text-gray-500 truncate mt-0.5">{user.email}</p>
+                      <p className="text-xs text-gray-400 mt-1">{user.nat || 'N/A'}</p>
                     </div>
                   </div>
-                  <div className="space-y-1 text-xs text-gray-600">
-                    <p><span className="font-medium">Cidade:</span> {user.address?.city || 'N/A'}</p>
-                    <p><span className="font-medium">Cargo:</span> {user.employment?.title || 'N/A'}</p>
+                  <div className="mt-3 flex justify-end gap-1" onClick={e => e.stopPropagation()}>
+                    <button
+                      onClick={() => handleEditClick(user)}
+                      className="text-purple-700 hover:text-purple-800 active:text-purple-900 p-2.5 hover:bg-purple-100 active:bg-purple-200 rounded-lg transition-colors touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center"
+                      title="Editar usuário"
+                      aria-label="Editar usuário"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => onDeleteClick(user.db_id)}
+                      className="text-red-600 hover:text-red-700 active:text-red-800 p-2.5 hover:bg-red-100 active:bg-red-200 rounded-lg transition-colors touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center"
+                      title="Excluir usuário"
+                      aria-label="Excluir usuário"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
                   </div>
                 </div>
               );
@@ -160,16 +162,15 @@ export default function SavedUsersTab({
         )}
       </div>
 
-      {editingUser && (
+      {viewingUser && isEditing && (
         <EditUserModal
-          isOpen={!!editingUser}
-          user={editingUser}
-          onSave={onSaveEdit}
-          onCancel={onCloseEdit}
+          isOpen={!!viewingUser}
+          user={viewingUser}
+          onSave={handleSaveEdit}
+          onCancel={handleCloseModal}
           loading={savingEdit}
         />
       )}
     </>
   );
 }
-
