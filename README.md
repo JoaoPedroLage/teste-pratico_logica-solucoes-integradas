@@ -597,6 +597,94 @@ A aplicação implementa uma estratégia robusta de fallback para garantir que c
 
 Este projeto foi desenvolvido como teste prático para Lógica Soluções Integradas.
 
+## 🚀 Deploy e Hospedagem
+
+### **Frontend - Vercel**
+- **URL**: [https://teste-pratico-logica-solucoes.vercel.app](https://teste-pratico-logica-solucoes.vercel.app)
+- **Plataforma**: Vercel (gratuito)
+- **Deploy**: Automático via GitHub
+- **Configuração**: Otimizada com `.vercelignore` e `vercel.json`
+- **Build**: Next.js 14 com TypeScript
+- **Status**: ✅ Deploy funcionando
+
+### **Backend - Render**
+- **URL**: [https://backend-logica-solucoes.onrender.com](https://backend-logica-solucoes.onrender.com)
+- **Plataforma**: Render (gratuito)
+- **Deploy**: Automático via GitHub
+- **Configuração**: `render.yaml` e `tsconfig.json` otimizados
+- **Runtime**: Node.js 18+ com TypeScript
+- **Banco**: SQLite + CSV para persistência
+- **Status**: ✅ Deploy funcionando
+
+### **Configurações de Deploy**
+
+#### **Frontend (Vercel)**
+```bash
+# Build Command
+npm run build
+
+# Output Directory
+.next
+
+# Environment Variables
+NEXT_PUBLIC_BACKEND_URL=https://backend-logica-solucoes.onrender.com
+NEXT_PUBLIC_BACKEND_PORT=443
+```
+
+#### **Backend (Render)**
+```bash
+# Build Command
+npm install && npm run build
+
+# Start Command
+npm start
+
+# Root Directory
+backend/
+
+# Environment Variables
+NODE_ENV=production
+PORT=10000
+DB_PATH=./data/user_manager.db
+CORS_ORIGIN=*
+```
+
+### **Arquivos de Configuração**
+
+- **`.vercelignore`** - Exclui backend/ e arquivos desnecessários do deploy frontend
+- **`vercel.json`** - Configurações específicas do Vercel
+- **`backend/render.yaml`** - Configurações específicas do Render
+- **`backend/tsconfig.json`** - Configurações TypeScript otimizadas para deploy
+
+### **Teste da Aplicação**
+
+1. **Acesse o frontend**: [Vercel](https://teste-pratico-logica-solucoes.vercel.app)
+2. **Teste o backend**: [Render Health Check](https://backend-logica-solucoes.onrender.com/health)
+3. **API Endpoints**: [Render API](https://backend-logica-solucoes.onrender.com/api/users)
+
+### **Limitações do Plano Gratuito**
+
+#### **Vercel (Frontend)**
+- ✅ Sem limitações significativas
+- ✅ Deploy automático
+- ✅ CDN global
+- ✅ SSL automático
+
+#### **Render (Backend)**
+- ⚠️ Aplicação "dorme" após 15 minutos de inatividade
+- ⚠️ Cold start de ~30 segundos quando acorda
+- ⚠️ Limite de 750 horas/mês
+- ⚠️ Sem persistência garantida (banco pode ser resetado)
+
+### **Alternativas de Deploy**
+
+Se precisar de mais recursos, considere:
+
+- **Railway** ($5/mês) - Sem cold start, mais confiável
+- **Fly.io** (gratuito) - Sem cold start, deploy global
+- **DigitalOcean** ($5/mês) - Mais controle, VPS dedicado
+- **AWS** (pay-as-you-go) - Escalável, mais complexo
+
 ## 👨‍💻 Desenvolvimento
 
 Projeto desenvolvido seguindo as melhores práticas de desenvolvimento de software:
