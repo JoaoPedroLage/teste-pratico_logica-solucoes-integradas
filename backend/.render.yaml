@@ -1,0 +1,17 @@
+# Configuração específica para Render
+services:
+  - type: web
+    name: backend-logica-solucoes
+    env: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: DB_PATH
+        value: ./data/user_manager.db
+      - key: CORS_ORIGIN
+        value: "*"
