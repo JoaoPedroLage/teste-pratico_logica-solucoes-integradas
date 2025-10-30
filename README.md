@@ -600,7 +600,7 @@ Este projeto foi desenvolvido como teste prático para Lógica Soluções Integr
 ## 🚀 Deploy e Hospedagem
 
 ### **Frontend - Vercel**
-- **URL**: [https://teste-pratico-logica-solucoes.vercel.app](https://teste-pratico-logica-solucoes.vercel.app)
+- **URL**: [https://teste-pratico-logica-solucoes-integ.vercel.app/](https://teste-pratico-logica-solucoes-integ.vercel.app/)
 - **Plataforma**: Vercel (gratuito)
 - **Deploy**: Automático via GitHub
 - **Configuração**: Otimizada com `.vercelignore` e `vercel.json`
@@ -608,7 +608,7 @@ Este projeto foi desenvolvido como teste prático para Lógica Soluções Integr
 - **Status**: ✅ Deploy funcionando
 
 ### **Backend - Render**
-- **URL**: [https://backend-logica-solucoes.onrender.com](https://backend-logica-solucoes.onrender.com)
+- **URL**: [https://backend-logica-solucoes.onrender.com/health](https://backend-logica-solucoes.onrender.com/health)
 - **Plataforma**: Render (gratuito)
 - **Deploy**: Automático via GitHub
 - **Configuração**: `render.yaml` e `tsconfig.json` otimizados
