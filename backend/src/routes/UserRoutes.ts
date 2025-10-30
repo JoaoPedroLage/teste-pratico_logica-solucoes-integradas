@@ -6,7 +6,7 @@ import { Router } from 'express';
 import { UserController } from '../controllers/UserController';
 
 const router = Router();
-const dbPath = process.env.DB_PATH || './data/users.db';
+const dbPath = process.env.DB_PATH || './data/user_manager.db';
 const csvPath = process.env.CSV_PATH || './data/users.csv';
 const userController = new UserController(dbPath, csvPath);
 
@@ -30,5 +30,8 @@ router.put('/:id', (req, res) => userController.updateUser(req, res));
 
 // DELETE /api/users/:id - Remove um usuário
 router.delete('/:id', (req, res) => userController.deleteUser(req, res));
+
+// GET /api/users/download/csv - Download do arquivo CSV
+router.get('/download/csv', (req, res) => userController.downloadCsv(req, res));
 
 export { router as UserRoutes };

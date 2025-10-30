@@ -2,11 +2,14 @@
  * Controller para gerenciamento de requisições relacionadas a usuários
  */
 import { Request, Response } from 'express';
+import * as fs from 'fs';
+import * as path from 'path';
 import { ApiService } from '../services/ApiService';
 import { DatabaseService } from '../services/DatabaseService';
 import { CsvService } from '../services/CsvService';
 import { SyncService } from '../services/SyncService';
 import { User } from '../models/User';
+import { SearchParams, DEFAULT_SEARCH_FIELDS } from '../constants/ApiConstants';
 
 export class UserController {
   private apiService: ApiService;
@@ -228,18 +231,19 @@ export class UserController {
    */
   async searchUsers(req: Request, res: Response): Promise<void> {
     try {
-      const searchTerm = req.query.q as string;
-      const fieldsParam = req.query.fields as string;
+      // Aceita tanto 'q' quanto 'term' para compatibilidade
+      const searchTerm = (req.query[SearchParams.QUERY] || req.query[SearchParams.TERM]) as string;
+      const fieldsParam = req.query[SearchParams.FIELDS] as string;
 
       if (!searchTerm) {
         res.status(400).json({
           success: false,
-          message: 'Parâmetro de busca (q) é obrigatório',
+          message: `Parâmetro de busca (${SearchParams.QUERY} ou ${SearchParams.TERM}) é obrigatório`,
         });
         return;
       }
 
-      const fields = fieldsParam ? fieldsParam.split(',') : ['first_name', 'last_name', 'email'];
+      const fields = fieldsParam ? fieldsParam.split(',') : DEFAULT_SEARCH_FIELDS;
       const users = await this.syncService.searchUsers(searchTerm, fields);
 
       res.json({
@@ -254,6 +258,36 @@ export class UserController {
       res.status(500).json({
         success: false,
         message: 'Erro ao buscar usuários',
+        error: error instanceof Error ? error.message : 'Erro desconhecido',
+      });
+    }
+  }
+
+  /**
+   * Download do arquivo CSV
+   */
+  async downloadCsv(req: Request, res: Response): Promise<void> {
+    try {
+      const csvPath = process.env.CSV_PATH || './data/users.csv';
+      
+      if (!fs.existsSync(csvPath)) {
+        res.status(404).json({
+          success: false,
+          message: 'Arquivo CSV não encontrado',
+        });
+        return;
+      }
+
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename="users.csv"');
+      
+      const fileStream = fs.createReadStream(csvPath);
+      fileStream.pipe(res);
+    } catch (error) {
+      console.error('Erro ao fazer download do CSV:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Erro ao fazer download do CSV',
         error: error instanceof Error ? error.message : 'Erro desconhecido',
       });
     }

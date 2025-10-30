@@ -6,6 +6,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { UserRoutes } from './routes/UserRoutes';
+import { AuthRoutes } from './routes/AuthRoutes';
 
 dotenv.config();
 
@@ -18,6 +19,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Rotas
+app.use('/api/auth', AuthRoutes);
 app.use('/api/users', UserRoutes);
 
 // Health check
