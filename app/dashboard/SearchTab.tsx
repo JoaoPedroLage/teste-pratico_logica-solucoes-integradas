@@ -2,11 +2,14 @@
 
 import { User } from './types';
 
+// Define o tipo para usuários salvos no banco, que incluem um db_id
+type SavedUser = User & { db_id: number };
+
 interface SearchTabProps {
   searchTerm: string;
-  searchResults: User[];
+  searchResults: SavedUser[];
   onSearchTermChange: (term: string) => void;
-  onEditClick: (user: User) => void;
+  onEditClick: (user: SavedUser) => void;
   onDeleteClick: (id: number) => void;
 }
 
@@ -37,15 +40,15 @@ export default function SearchTab({
       {searchResults.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
           {searchResults.map((user) => (
-            <div key={user.id} className="border border-gray-200 rounded-xl p-4 sm:p-4 active:shadow-lg transition-shadow touch-manipulation active:scale-[0.98]">
+            <div key={user.db_id} className="border border-gray-200 rounded-xl p-4 sm:p-4 active:shadow-lg transition-shadow touch-manipulation active:scale-[0.98]">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center space-x-3">
                   <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-white font-bold text-lg">
-                    {user.first_name[0]}{user.last_name[0]}
+                    {user.name.first[0]}{user.name.last[0]}
                   </div>
                   <div>
                     <p className="text-sm font-medium text-gray-900">
-                      {user.first_name} {user.last_name}
+                      {user.name.first} {user.name.last}
                     </p>
                     <p className="text-xs text-gray-500">{user.email}</p>
                   </div>
@@ -62,7 +65,7 @@ export default function SearchTab({
                     </svg>
                   </button>
                   <button
-                    onClick={() => onDeleteClick(user.id)}
+                    onClick={() => onDeleteClick(user.db_id)}
                     className="text-red-600 hover:text-red-700 active:text-red-800 p-2.5 hover:bg-red-50 active:bg-red-100 rounded-lg transition-colors touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center"
                     title="Excluir usuário"
                     aria-label="Excluir usuário"
@@ -74,8 +77,7 @@ export default function SearchTab({
                 </div>
               </div>
               <div className="space-y-1 text-xs text-gray-600">
-                <p><span className="font-medium">Cidade:</span> {user.address?.city || 'N/A'}</p>
-                <p><span className="font-medium">Cargo:</span> {user.employment?.title || 'N/A'}</p>
+                <p><span className="font-medium">Cidade:</span> {user.location?.city || 'N/A'}</p>
               </div>
             </div>
           ))}
@@ -90,4 +92,3 @@ export default function SearchTab({
     </div>
   );
 }
-
