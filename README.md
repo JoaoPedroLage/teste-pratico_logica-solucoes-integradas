@@ -2,6 +2,38 @@
 
 Aplicativo completo para gerenciamento de usuários desenvolvido em Next.js, TypeScript e TailwindCSS, com backend Node.js usando Docker, seguindo princípios SOLID e Clean Code.
 
+## 🧭 Sumário
+
+- [Descrição](#-descrição)
+- [Verificação de Requisitos - Todos Implementados](#-verificação-de-requisitos---todos-implementados)
+- [Requisitos Extras Implementados](#-requisitos-extras-implementados-além-do-solicitado)
+- [Conclusão](#-conclusão)
+- [Tecnologias](#-tecnologias)
+  - [Frontend](#frontend)
+  - [Backend](#backend)
+  - [Ferramentas](#ferramentas)
+- [Estrutura do Projeto](#-estrutura-do-projeto)
+- [Como Executar](#-como-executar)
+  - [Pré-requisitos](#pré-requisitos)
+  - [Instalação](#instalação)
+  - [Execução](#execução)
+  - [Acessar a aplicação](#acessar-a-aplicação)
+- [API Endpoints](#-api-endpoints)
+- [Arquitetura](#-arquitetura)
+- [Funcionalidades Detalhadas](#-funcionalidades-detalhadas)
+  - [Preservação de Integridade do CSV](#preservação-de-integridade-do-csv)
+  - [Persistência Dual (SQLite + CSV)](#persistência-dual-sqlite--csv)
+  - [Pesquisa Multi-campo](#pesquisa-multi-campo)
+  - [Design Responsivo e Mobile-First](#design-responsivo-e-mobile-first)
+  - [Resiliência e Fallback da API Externa](#resiliência-e-fallback-da-api-externa)
+- [Documentação Adicional](#-documentação-adicional)
+- [Como Contribuir](#-como-contribuir)
+- [Próximos Passos (Roadmap)](#-próximos-passos-roadmap)
+- [Tecnologias e Dependências](#-tecnologias-e-dependências)
+- [Licença](#-licença)
+- [Deploy e Hospedagem](#-deploy-e-hospedagem)
+- [Desenvolvimento](#-desenvolvimento)
+
 ## 📋 Descrição
 
 Aplicativo desenvolvido para atender todas as especificações do teste prático, incluindo consumo de API externa, manipulação de arquivos CSV com preservação de integridade, e interface moderna para gerenciamento de usuários.
