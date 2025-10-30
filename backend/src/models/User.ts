@@ -1,40 +1,55 @@
 /**
- * Modelo de Usuário
- * Representa a estrutura de dados de um usuário
+ * Modelo de Usuário (compatível com Random User API)
  */
 export interface User {
-  id: number;
-  uid: string;
-  first_name: string;
-  last_name: string;
-  username: string;
-  email: string;
-  avatar: string;
   gender: string;
-  phone_number: string;
-  social_insurance_number: string;
-  date_of_birth: string;
-  employment: {
+  name: {
     title: string;
-    key_skill: string;
+    first: string;
+    last: string;
   };
-  address: {
+  location: {
+    street: {
+      number: number;
+      name: string;
+    };
     city: string;
-    street_name: string;
-    street_address: string;
-    zip_code: string;
     state: string;
     country: string;
-    lng: number;
-    lat: number;
+    postcode: string | number;
+    coordinates?: {
+      latitude: string;
+      longitude: string;
+    };
+    timezone?: {
+      offset: string;
+      description: string;
+    };
   };
-  credit_card: {
-    cc_number: string;
+  email: string;
+  login: {
+    uuid: string;
+    username: string;
   };
-  subscription: {
-    plan: string;
-    status: string;
-    payment_method: string;
-    term: string;
+  dob: {
+    date: string;
+    age: number;
   };
+  registered: {
+    date: string;
+    age: number;
+  };
+  phone: string;
+  cell: string;
+  // Identificador documental (ex.: SSN) quando fornecido pela API externa
+  id?: {
+    name: string;
+    value: string;
+  };
+  picture: {
+    large: string;
+    medium: string;
+    thumbnail: string;
+  };
+  nat: string;
 }

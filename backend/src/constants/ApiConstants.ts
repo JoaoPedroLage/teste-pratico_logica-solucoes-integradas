@@ -10,14 +10,14 @@ export enum SearchParams {
 }
 
 export enum SearchFields {
-  FIRST_NAME = 'first_name',
-  LAST_NAME = 'last_name',
+  NAME_FIRST = 'name.first',
+  NAME_LAST = 'name.last',
   EMAIL = 'email',
 }
 
 export const DEFAULT_SEARCH_FIELDS: string[] = [
-  SearchFields.FIRST_NAME,
-  SearchFields.LAST_NAME,
+  SearchFields.NAME_FIRST,
+  SearchFields.NAME_LAST,
   SearchFields.EMAIL,
 ];
 
