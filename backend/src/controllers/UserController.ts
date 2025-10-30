@@ -69,7 +69,8 @@ export class UserController {
    */
   async saveUsers(req: Request, res: Response): Promise<void> {
     try {
-      const users: User[] = req.body.users;
+      // Aceita tanto req.body.users quanto req.body diretamente (array)
+      const users: User[] = req.body.users || req.body;
       if (!users || !Array.isArray(users) || users.length === 0) {
         res.status(400).json({
           success: false,
