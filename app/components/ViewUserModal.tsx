@@ -1,6 +1,7 @@
 'use client';
 
 import { User } from '../dashboard/types';
+import Image from 'next/image';
 
 interface ViewUserModalProps {
   isOpen: boolean;
@@ -14,6 +15,7 @@ export default function ViewUserModal({ isOpen, user, onClose }: ViewUserModalPr
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
       <div className="bg-white rounded-xl sm:rounded-2xl shadow-2xl max-w-2xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
+        {/* Header */}
         <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-purple-600 text-white p-4 sm:p-6 rounded-t-xl sm:rounded-t-2xl z-10">
           <div className="flex items-center justify-between">
             <h2 className="text-lg sm:text-2xl font-bold">Detalhes do Usuário</h2>
@@ -30,146 +32,144 @@ export default function ViewUserModal({ isOpen, user, onClose }: ViewUserModalPr
         </div>
 
         <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
-          {/* Informações Pessoais */}
-          <div className="bg-gray-50 rounded-xl p-3 sm:p-4">
-            <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4 flex items-center gap-2">
-              <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
-              Informações Pessoais
+          
+          {/* Avatar, nome e email */}
+          <div className="bg-gray-50 rounded-xl p-3 sm:p-4 flex flex-col items-center">
+            <Image
+              src={user.picture?.large || '/default-avatar.png'}
+              alt={`${user.name.first} ${user.name.last}`}
+              width={96}
+              height={96}
+              className="w-24 h-24 mb-4 rounded-full border"
+              unoptimized
+            />
+            <h3 className="text-xl font-semibold mb-2">
+              {user.name.title} {user.name.first} {user.name.last}
             </h3>
+            <p className="text-gray-500">{user.email}</p>
+          </div>
+
+          {/* Dados Básicos */}
+          <div className="bg-gray-50 rounded-xl p-3 sm:p-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div>
-                <p className="text-xs text-gray-500 mb-1">Nome Completo</p>
-                <p className="text-sm font-medium text-gray-900">{user.first_name} {user.last_name}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500 mb-1">Username</p>
-                <p className="text-sm font-medium text-gray-900">{user.username}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500 mb-1">Email</p>
-                <p className="text-sm font-medium text-gray-900">{user.email}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500 mb-1">Telefone</p>
-                <p className="text-sm font-medium text-gray-900">{user.phone_number}</p>
+                <p className="text-xs text-gray-500 mb-1">Gênero</p>
+                <p className="text-sm text-gray-900 font-medium">
+                  {user.gender === 'male' ? 'Masculino' : user.gender === 'female' ? 'Feminino' : user.gender}
+                </p>
               </div>
               <div>
                 <p className="text-xs text-gray-500 mb-1">Data de Nascimento</p>
-                <p className="text-sm font-medium text-gray-900">{user.date_of_birth}</p>
+                <p className="text-sm text-gray-900 font-medium">
+                  {new Date(user.dob.date).toLocaleDateString()}
+                </p>
               </div>
               <div>
-                <p className="text-xs text-gray-500 mb-1">Gênero</p>
-                <p className="text-sm font-medium text-gray-900">{user.gender}</p>
+                <p className="text-xs text-gray-500 mb-1">Idade</p>
+                <p className="text-sm text-gray-900 font-medium">
+                  {user.dob.age} anos
+                </p>
               </div>
               <div>
-                <p className="text-xs text-gray-500 mb-1">UID</p>
-                <p className="text-sm font-medium text-gray-900 break-all">{user.uid}</p>
+                <p className="text-xs text-gray-500 mb-1">Criado em</p>
+                <p className="text-sm text-gray-900 font-medium">
+                  {new Date(user.registered.date).toLocaleDateString()}
+                </p>
               </div>
               <div>
-                <p className="text-xs text-gray-500 mb-1">Número de Seguro Social</p>
-                <p className="text-sm font-medium text-gray-900">{user.social_insurance_number}</p>
+                <p className="text-xs text-gray-500 mb-1">Tempo de Registro</p>
+                <p className="text-sm text-gray-900 font-medium">
+                  {user.registered.age} anos
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 mb-1">Nacionalidade</p>
+                <p className="text-sm text-gray-900 font-medium">
+                  {user.nat}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 mb-1">Telefone</p>
+                <p className="text-sm text-gray-900 font-medium">
+                  {user.phone}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 mb-1">Celular</p>
+                <p className="text-sm text-gray-900 font-medium">
+                  {user.cell}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 mb-1">Documento</p>
+                <p className="text-sm font-medium text-gray-900">
+                  {user.id_info?.name} {user.id_info?.value}
+                </p>
               </div>
             </div>
           </div>
 
           {/* Endereço */}
-          <div className="bg-gray-50 rounded-xl p-4">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-              Endereço
-            </h3>
+          <div className="bg-gray-50 rounded-xl p-3 sm:p-4">
+            <h4 className="font-semibold mb-2">Endereço Completo</h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div>
                 <p className="text-xs text-gray-500 mb-1">Rua</p>
-                <p className="text-sm font-medium text-gray-900">{user.address.street_name}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500 mb-1">Número</p>
-                <p className="text-sm font-medium text-gray-900">{user.address.street_address}</p>
+                <p className="text-sm font-medium text-gray-900">
+                  {user.location.street.number} {user.location.street.name}
+                </p>
               </div>
               <div>
                 <p className="text-xs text-gray-500 mb-1">Cidade</p>
-                <p className="text-sm font-medium text-gray-900">{user.address.city}</p>
+                <p className="text-sm font-medium text-gray-900">
+                  {user.location.city}
+                </p>
               </div>
               <div>
                 <p className="text-xs text-gray-500 mb-1">Estado</p>
-                <p className="text-sm font-medium text-gray-900">{user.address.state}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500 mb-1">CEP</p>
-                <p className="text-sm font-medium text-gray-900">{user.address.zip_code}</p>
+                <p className="text-sm font-medium text-gray-900">
+                  {user.location.state}
+                </p>
               </div>
               <div>
                 <p className="text-xs text-gray-500 mb-1">País</p>
-                <p className="text-sm font-medium text-gray-900">{user.address.country}</p>
+                <p className="text-sm font-medium text-gray-900">
+                  {user.location.country}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 mb-1">CEP</p>
+                <p className="text-sm font-medium text-gray-900">
+                  {user.location.postcode}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 mb-1">Coordenadas</p>
+                <p className="text-sm font-medium text-gray-900">
+                  Lat: {user.location.coordinates?.latitude}, Lng: {user.location.coordinates?.longitude}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 mb-1">Fuso horário</p>
+                <p className="text-sm font-medium text-gray-900">
+                  {user.location.timezone?.offset} ({user.location.timezone?.description})
+                </p>
               </div>
             </div>
           </div>
 
-          {/* Emprego */}
-          <div className="bg-gray-50 rounded-xl p-4">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 12H8m-4 0h.01M8 12h.01M12 12h.01M16 12h.01M20 12h.01m-4-8h4a2 2 0 012 2v16a2 2 0 01-2 2h-4a2 2 0 01-2-2V6a2 2 0 012-2z" />
-              </svg>
-              Informações Profissionais
-            </h3>
+          {/* Login/Hashes */}
+          <div className="bg-gray-50 rounded-xl p-3 sm:p-4">
+            <h4 className="font-semibold mb-2">Acesso/Login</h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div>
-                <p className="text-xs text-gray-500 mb-1">Cargo</p>
-                <p className="text-sm font-medium text-gray-900">{user.employment.title}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500 mb-1">Habilidade Principal</p>
-                <p className="text-sm font-medium text-gray-900">{user.employment.key_skill}</p>
+                <p className="text-xs text-gray-500 mb-1">Usuário</p>
+                <p className="text-sm text-gray-900 font-medium">
+                  {user.login.username}
+                </p>
               </div>
             </div>
           </div>
-
-          {/* Cartão de Crédito e Assinatura */}
-          {(user.credit_card || user.subscription) && (
-            <div className="bg-gray-50 rounded-xl p-4">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                </svg>
-                Pagamento e Assinatura
-              </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                {user.credit_card && (
-                  <div>
-                    <p className="text-xs text-gray-500 mb-1">Cartão de Crédito</p>
-                    <p className="text-sm font-medium text-gray-900">{user.credit_card.cc_number}</p>
-                  </div>
-                )}
-                {user.subscription && (
-                  <>
-                    <div>
-                      <p className="text-xs text-gray-500 mb-1">Plano</p>
-                      <p className="text-sm font-medium text-gray-900">{user.subscription.plan}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500 mb-1">Status</p>
-                      <p className="text-sm font-medium text-gray-900">{user.subscription.status}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500 mb-1">Método de Pagamento</p>
-                      <p className="text-sm font-medium text-gray-900">{user.subscription.payment_method}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500 mb-1">Termo</p>
-                      <p className="text-sm font-medium text-gray-900">{user.subscription.term}</p>
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-          )}
 
           <div className="flex justify-end pt-4 border-t border-gray-200">
             <button
@@ -184,4 +184,3 @@ export default function ViewUserModal({ isOpen, user, onClose }: ViewUserModalPr
     </div>
   );
 }
-

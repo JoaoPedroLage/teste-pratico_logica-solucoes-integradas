@@ -3,40 +3,19 @@
 import { useState, useEffect } from 'react';
 
 interface User {
-  id: number;
-  uid: string;
-  first_name: string;
-  last_name: string;
-  username: string;
-  email: string;
-  avatar: string;
   gender: string;
-  phone_number: string;
-  social_insurance_number: string;
-  date_of_birth: string;
-  employment: {
-    title: string;
-    key_skill: string;
+  name: { title: string; first: string; last: string };
+  location: {
+    street: { number: number; name: string };
+    city: string; state: string; country: string; postcode: string | number;
   };
-  address: {
-    city: string;
-    street_name: string;
-    street_address: string;
-    zip_code: string;
-    state: string;
-    country: string;
-    lng: number;
-    lat: number;
-  };
-  credit_card: {
-    cc_number: string;
-  };
-  subscription: {
-    plan: string;
-    status: string;
-    payment_method: string;
-    term: string;
-  };
+  email: string;
+  login: { uuid: string; username: string };
+  dob: { date: string; age: number };
+  phone: string;
+  cell: string;
+  picture: { large: string; medium: string; thumbnail: string };
+  nat: string;
 }
 
 interface UserFormProps {
@@ -89,8 +68,8 @@ export default function UserForm({ user, onSave, onCancel }: UserFormProps) {
               <label className="block text-sm font-medium mb-1">Nome</label>
               <input
                 type="text"
-                value={formData.first_name}
-                onChange={(e) => handleChange('first_name', e.target.value)}
+                value={formData.name.first}
+                onChange={(e) => handleChange('name.first', e.target.value)}
                 className="w-full px-3 py-2 border rounded"
                 required
               />
@@ -99,8 +78,8 @@ export default function UserForm({ user, onSave, onCancel }: UserFormProps) {
               <label className="block text-sm font-medium mb-1">Sobrenome</label>
               <input
                 type="text"
-                value={formData.last_name}
-                onChange={(e) => handleChange('last_name', e.target.value)}
+                value={formData.name.last}
+                onChange={(e) => handleChange('name.last', e.target.value)}
                 className="w-full px-3 py-2 border rounded"
                 required
               />
@@ -116,11 +95,30 @@ export default function UserForm({ user, onSave, onCancel }: UserFormProps) {
               />
             </div>
             <div>
+              <label className="block text-sm font-medium mb-1">Username</label>
+              <input
+                type="text"
+                value={formData.login.username}
+                onChange={(e) => handleChange('login.username', e.target.value)}
+                className="w-full px-3 py-2 border rounded"
+                required
+              />
+            </div>
+            <div>
               <label className="block text-sm font-medium mb-1">Telefone</label>
               <input
                 type="text"
-                value={formData.phone_number}
-                onChange={(e) => handleChange('phone_number', e.target.value)}
+                value={formData.phone}
+                onChange={(e) => handleChange('phone', e.target.value)}
+                className="w-full px-3 py-2 border rounded"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Celular</label>
+              <input
+                type="text"
+                value={formData.cell}
+                onChange={(e) => handleChange('cell', e.target.value)}
                 className="w-full px-3 py-2 border rounded"
               />
             </div>
@@ -128,35 +126,17 @@ export default function UserForm({ user, onSave, onCancel }: UserFormProps) {
               <label className="block text-sm font-medium mb-1">Cidade</label>
               <input
                 type="text"
-                value={formData.address?.city || ''}
-                onChange={(e) => handleChange('address.city', e.target.value)}
+                value={formData.location.city}
+                onChange={(e) => handleChange('location.city', e.target.value)}
                 className="w-full px-3 py-2 border rounded"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Estado</label>
+              <label className="block text-sm font-medium mb-1">País</label>
               <input
                 type="text"
-                value={formData.address?.state || ''}
-                onChange={(e) => handleChange('address.state', e.target.value)}
-                className="w-full px-3 py-2 border rounded"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Cargo</label>
-              <input
-                type="text"
-                value={formData.employment?.title || ''}
-                onChange={(e) => handleChange('employment.title', e.target.value)}
-                className="w-full px-3 py-2 border rounded"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Plano</label>
-              <input
-                type="text"
-                value={formData.subscription?.plan || ''}
-                onChange={(e) => handleChange('subscription.plan', e.target.value)}
+                value={formData.location.country}
+                onChange={(e) => handleChange('location.country', e.target.value)}
                 className="w-full px-3 py-2 border rounded"
               />
             </div>
@@ -166,15 +146,11 @@ export default function UserForm({ user, onSave, onCancel }: UserFormProps) {
               type="button"
               onClick={onCancel}
               className="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
-            >
-              Cancelar
-            </button>
+            >Cancelar</button>
             <button
               type="submit"
               className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-            >
-              Salvar
-            </button>
+            >Salvar</button>
           </div>
         </form>
       </div>

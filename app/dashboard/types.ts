@@ -1,35 +1,53 @@
 export interface User {
   id: number;
-  uid: string;
-  first_name: string;
-  last_name: string;
-  username: string;
-  email: string;
-  avatar: string;
-  gender: string;
-  phone_number: string;
-  social_insurance_number: string;
-  date_of_birth: string;
-  employment: {
-    title: string;
-    key_skill: string;
+  id_info: {
+    name: string;
+    value: string;
   };
-  address: {
+  gender: string;
+  name: {
+    title: string;
+    first: string;
+    last: string;
+  };
+  location: {
+    street: {
+      number: number;
+      name: string;
+    };
     city: string;
-    street_name: string;
-    street_address: string;
-    zip_code: string;
     state: string;
     country: string;
+    postcode: string | number;
+    coordinates?: {
+      latitude: string;
+      longitude: string;
   };
-  credit_card?: {
-    cc_number: string;
+    timezone?: {
+      offset: string;
+      description: string;
+    };
   };
-  subscription?: {
-    plan: string;
-    status: string;
-    payment_method: string;
-    term: string;
+  email: string;
+  login: {
+    uuid: string;
+    username: string;
   };
+  dob: {
+    date: string;
+    age: number;
+  };
+  registered: {
+    date: string;
+    age: number;
+  };
+  phone: string;
+  cell: string;
+  picture: {
+    large: string;
+    medium: string;
+    thumbnail: string;
+  };
+  nat: string;
 }
 

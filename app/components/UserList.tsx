@@ -3,40 +3,23 @@
 import Image from 'next/image';
 
 interface User {
-  id: number;
-  uid: string;
-  first_name: string;
-  last_name: string;
-  username: string;
-  email: string;
-  avatar: string;
   gender: string;
-  phone_number: string;
-  social_insurance_number: string;
-  date_of_birth: string;
-  employment: {
-    title: string;
-    key_skill: string;
+  name: { title: string; first: string; last: string };
+  location: {
+    street: { number: number; name: string };
+    city: string; state: string; country: string; postcode: string | number;
+    coordinates?: { latitude: string; longitude: string };
+    timezone?: { offset: string; description: string }
   };
-  address: {
-    city: string;
-    street_name: string;
-    street_address: string;
-    zip_code: string;
-    state: string;
-    country: string;
-    lng: number;
-    lat: number;
-  };
-  credit_card: {
-    cc_number: string;
-  };
-  subscription: {
-    plan: string;
-    status: string;
-    payment_method: string;
-    term: string;
-  };
+  email: string;
+  login: { uuid: string; username: string };
+  dob: { date: string; age: number };
+  registered: { date: string; age: number };
+  phone: string;
+  cell: string;
+  id: { name: string; value: string };
+  picture: { large: string; medium: string; thumbnail: string };
+  nat: string;
 }
 
 interface UserListProps {
@@ -45,7 +28,7 @@ interface UserListProps {
   selectedUsers?: User[];
   setSelectedUsers?: (users: User[]) => void;
   onEdit?: (user: User) => void;
-  onDelete?: (id: number) => void;
+  onDelete?: (id: string) => void;
   loading?: boolean;
 }
 
@@ -65,16 +48,16 @@ export default function UserList({
   const handleSelectUser = (user: User) => {
     if (!setSelectedUsers) return;
 
-    const isSelected = selectedUsers.some((u) => u.id === user.id);
+    const isSelected = selectedUsers.some((u) => u.login.uuid === user.login.uuid);
     if (isSelected) {
-      setSelectedUsers(selectedUsers.filter((u) => u.id !== user.id));
+      setSelectedUsers(selectedUsers.filter((u) => u.login.uuid !== user.login.uuid));
     } else {
       setSelectedUsers([...selectedUsers, user]);
     }
   };
 
   const isUserSelected = (user: User) => {
-    return selectedUsers.some((u) => u.id === user.id);
+    return selectedUsers.some((u) => u.login.uuid === user.login.uuid);
   };
 
   if (loading && users.length === 0) {
@@ -99,8 +82,6 @@ export default function UserList({
         <thead className="bg-gray-50">
           <tr>
             {selectable && <th className="px-4 py-3 text-left">Selecionar</th>}
-            <th className="px-4 py-3 text-left">ID</th>
-            <th className="px-4 py-3 text-left">Avatar</th>
             <th className="px-4 py-3 text-left">Nome</th>
             <th className="px-4 py-3 text-left">Email</th>
             <th className="px-4 py-3 text-left">Telefone</th>
@@ -109,8 +90,8 @@ export default function UserList({
           </tr>
         </thead>
         <tbody>
-          {users.map((user) => (
-            <tr key={user.id} className="border-t hover:bg-gray-50">
+          {users.map((user, idx) => (
+            <tr key={user.login.uuid || idx} className="border-t hover:bg-gray-50">
               {selectable && (
                 <td className="px-4 py-3">
                   <input
@@ -121,44 +102,36 @@ export default function UserList({
                   />
                 </td>
               )}
-              <td className="px-4 py-3">{user.id}</td>
-              <td className="px-4 py-3">
+              <td className="px-4 py-3 flex items-center gap-2">
                 <Image
-                  src={user.avatar || '/default-avatar.png'}
-                  alt={`${user.first_name} ${user.last_name}`}
+                  src={user.picture.thumbnail}
+                  alt={`${user.name.first} ${user.name.last}`}
                   width={40}
                   height={40}
                   className="w-10 h-10 rounded-full"
                   onError={(e) => {
-                    (e.target as HTMLImageElement).src =
-                      'https://ui-avatars.com/api/?name=' +
-                      encodeURIComponent(`${user.first_name} ${user.last_name}`);
+                    (e.target as HTMLImageElement).src = '/default-avatar.png';
                   }}
+                  unoptimized
                 />
-              </td>
-              <td className="px-4 py-3">
-                {user.first_name} {user.last_name}
+                <span>{user.name.first} {user.name.last}</span>
               </td>
               <td className="px-4 py-3">{user.email}</td>
-              <td className="px-4 py-3">{user.phone_number}</td>
-              <td className="px-4 py-3">{user.address?.city || 'N/A'}</td>
+              <td className="px-4 py-3">{user.phone}</td>
+              <td className="px-4 py-3">{user.location.city}</td>
               <td className="px-4 py-3">
                 <div className="flex space-x-2">
                   {onEdit && (
                     <button
                       onClick={() => onEdit(user)}
                       className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm"
-                    >
-                      Editar
-                    </button>
+                    >Editar</button>
                   )}
                   {onDelete && (
                     <button
-                      onClick={() => onDelete(user.id)}
+                      onClick={() => onDelete(user.login.uuid)}
                       className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 text-sm"
-                    >
-                      Excluir
-                    </button>
+                    >Excluir</button>
                   )}
                 </div>
               </td>
