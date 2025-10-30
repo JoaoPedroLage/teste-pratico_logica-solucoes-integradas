@@ -89,11 +89,11 @@ export default function EditUserModal({ isOpen, user, onSave, onCancel, loading 
                   </div>
                   <div className="grid grid-cols-1 gap-3 flex-1">
                     <div>
-                      <label className="block text-xs mb-1 text-gray-500">URL (thumbnail)</label>
+                      <label className="block text-xs mb-1 text-gray-500">URL (large)</label>
                       <input
                         type="text"
                         value={formData.picture?.large || ''}
-                        onChange={e => handleChange('picture.thumbnail', e.target.value)}
+                        onChange={e => handleChange('picture.large', e.target.value)}
                         className="w-full px-3 py-2 rounded border"
                       />
                     </div>

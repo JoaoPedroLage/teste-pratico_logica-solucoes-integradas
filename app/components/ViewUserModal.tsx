@@ -34,15 +34,23 @@ export default function ViewUserModal({ isOpen, user, onClose }: ViewUserModalPr
         <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
           
           {/* Avatar, nome e email */}
-          <div className="bg-gray-50 rounded-xl p-3 sm:p-4 flex flex-col items-center">
-            <Image
-              src={user.picture?.large || '/default-avatar.png'}
-              alt={`${user.name.first} ${user.name.last}`}
-              width={96}
-              height={96}
-              className="w-24 h-24 mb-4 rounded-full border"
-              unoptimized
-            />
+          <div className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-xl p-3 sm:p-4 flex flex-col items-center">
+            <div className="relative mb-4">
+              {user.picture?.large ? (
+                <Image
+                  src={user.picture.large}
+                  alt={`${user.name.first} ${user.name.last}`}
+                  width={128}
+                  height={128}
+                  className="w-32 h-32 rounded-full border-4 border-white shadow-lg object-cover"
+                  unoptimized
+                />
+              ) : (
+                <div className="w-32 h-32 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold text-4xl border-4 border-white shadow-lg">
+                  {user.name.first[0]}{user.name.last[0]}
+                </div>
+              )}
+            </div>
             <h3 className="text-xl font-semibold mb-2">
               {user.name.title} {user.name.first} {user.name.last}
             </h3>

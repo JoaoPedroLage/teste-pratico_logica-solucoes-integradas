@@ -104,11 +104,11 @@ export default function UserList({
               )}
               <td className="px-4 py-3 flex items-center gap-2">
                 <Image
-                  src={user.picture.thumbnail}
+                  src={user.picture.large}
                   alt={`${user.name.first} ${user.name.last}`}
                   width={40}
                   height={40}
-                  className="w-10 h-10 rounded-full"
+                  className="w-10 h-10 rounded-full object-cover"
                   onError={(e) => {
                     (e.target as HTMLImageElement).src = '/default-avatar.png';
                   }}
