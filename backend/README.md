@@ -17,7 +17,7 @@ backend/
 │   ├── routes/         # Rotas Express
 │   └── server.ts       # Servidor principal
 ├── data/               # Arquivos SQLite e CSV (criados em runtime)
-│   ├── users.db        # Banco de dados SQLite
+│   ├── user_manager.db        # Banco de dados SQLite
 │   └── users.csv       # Arquivo CSV
 ├── Dockerfile
 └── package.json
@@ -46,7 +46,7 @@ Criar arquivo `.env` baseado em `.env.example`:
 ```
 PORT=3001
 NODE_ENV=development
-DB_PATH=./data/users.db
+DB_PATH=./data/user_manager.db
 CSV_PATH=./data/users.csv
 ```
 

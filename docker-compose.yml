@@ -14,6 +14,6 @@ services:
     environment:
       - NODE_ENV=development
       - PORT=3001
-      - DB_PATH=/app/data/users.db
+      - DB_PATH=/app/data/user_manager.db
       - CSV_PATH=/app/data/users.csv
     restart: unless-stopped

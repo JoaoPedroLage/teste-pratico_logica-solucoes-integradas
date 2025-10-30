@@ -297,6 +297,26 @@ A aplicação utiliza uma estratégia de persistência dual para garantir redund
 - Busca parcial (contains)
 - Prioriza busca no SQLite com fallback para CSV
 
+### Design Responsivo e Mobile-First
+
+A aplicação foi desenvolvida com foco em responsividade e experiência otimizada para dispositivos móveis, seguindo as melhores práticas de UI/UX mobile:
+
+- **Layout Adaptativo**: Interface que se adapta automaticamente a diferentes tamanhos de tela (mobile, tablet, desktop)
+- **Touch-Friendly**: Todos os botões e elementos interativos seguem o padrão de 44x44px mínimo para facilitar o toque
+- **Navegação Mobile**: Tabs horizontais com scroll suave e labels otimizadas para telas pequenas
+- **Cards Responsivos**: Grid que se adapta automaticamente (1 coluna em mobile, 2-3 em tablets/desktop)
+- **Modais Mobile**: Modais que ocupam quase toda a tela em dispositivos móveis para melhor visualização
+- **Inputs Otimizados**: Campos de formulário com tamanho adequado para mobile e prevenção de zoom indesejado
+- **Header Compacto**: Navegação superior otimizada com título abreviado e botões de ação adaptados para mobile
+- **Feedback Tátil**: Uso de `touch-manipulation` CSS e estados `active` para melhor feedback visual em interações touch
+
+**Breakpoints principais:**
+- Mobile: < 640px (sm)
+- Tablet: 640px - 1024px (md/lg)
+- Desktop: > 1024px (lg+)
+
+A aplicação oferece uma experiência consistente e fluida em qualquer dispositivo, priorizando usabilidade e acessibilidade em telas pequenas.
+
 ### Resiliência e Fallback da API Externa
 
 A aplicação implementa uma estratégia robusta de fallback para garantir que continue funcionando mesmo quando a API externa (`random-data-api.com`) está indisponível:
