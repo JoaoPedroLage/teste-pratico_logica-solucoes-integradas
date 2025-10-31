@@ -402,62 +402,82 @@ O projeto segue os princípios SOLID e Clean Code:
 
 ## 🗄️ Esquema do Banco de Dados (SQLite)
 
-O backend utiliza SQLite como fonte primária de dados para usuários salvos, com um modelo relacional normalizado e chaves estrangeiras. Abaixo está um resumo das tabelas, colunas e relacionamentos.
+O backend utiliza SQLite como fonte primária de dados para usuários salvos, com um modelo desnormalizado baseado na estrutura da Random User API. O banco de dados foi simplificado para refletir exatamente o formato da API externa.
 
-### Visão Geral e Relacionamentos
+### Visão Geral
 
-- **users** (tabela principal)
-  - Relacionamentos 1:1 com: `employment`, `address`, `credit_card`, `subscription`
-  - Exclusão em cascata: ao remover um registro em `users`, os registros relacionados são removidos automaticamente
+- **users** (tabela única)
+  - Modelo desnormalizado: todos os campos da Random User API são armazenados como colunas planas
+  - Cada usuário salvo é identificado por `db_id` (chave primária) e `owner_id` (para isolamento por usuário)
+  - Campos aninhados da API são "achatados" (ex: `name.first` → `name_first`)
+  - Não há tabelas relacionadas (modelo simplificado)
 
-### Tabelas e Colunas
+### Tabela: users
 
-- **users**
-  - `id` INTEGER PK AUTOINCREMENT
-  - `uid` TEXT NOT NULL
-  - `first_name` TEXT NOT NULL
-  - `last_name` TEXT NOT NULL
-  - `username` TEXT NOT NULL
-  - `email` TEXT NOT NULL
-  - `avatar` TEXT
-  - `gender` TEXT
-  - `phone_number` TEXT
-  - `social_insurance_number` TEXT
-  - `date_of_birth` TEXT
-  - `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP
-  - `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP
-  - Índices: `idx_users_email`, `idx_users_first_name`, `idx_users_last_name`
+**Chaves e Identificadores:**
+- `db_id` INTEGER PRIMARY KEY AUTOINCREMENT - ID único do registro
+- `owner_id` INTEGER NOT NULL - ID do usuário autenticado (isolamento de dados)
+- `login_uuid` TEXT UNIQUE - UUID do usuário da Random User API
 
-- **employment** (1:1 com `users`)
-  - `id` INTEGER PK AUTOINCREMENT
-  - `user_id` INTEGER NOT NULL FK → `users(id)` ON DELETE CASCADE
-  - `title` TEXT
-  - `key_skill` TEXT
+**Dados Pessoais:**
+- `gender` TEXT - Gênero (male/female)
+- `name_title` TEXT - Título (Mr, Ms, Miss, Mrs, etc.)
+- `name_first` TEXT - Primeiro nome
+- `name_last` TEXT - Último nome
 
-- **address** (1:1 com `users`)
-  - `id` INTEGER PK AUTOINCREMENT
-  - `user_id` INTEGER NOT NULL FK → `users(id)` ON DELETE CASCADE
-  - `city` TEXT
-  - `street_name` TEXT
-  - `street_address` TEXT
-  - `zip_code` TEXT
-  - `state` TEXT
-  - `country` TEXT
-  - `lng` REAL
-  - `lat` REAL
+**Localização:**
+- `location_street_number` INTEGER - Número da rua
+- `location_street_name` TEXT - Nome da rua
+- `location_city` TEXT - Cidade
+- `location_state` TEXT - Estado/Província
+- `location_country` TEXT - País
+- `location_postcode` TEXT - Código postal
+- `location_coordinates_latitude` TEXT - Latitude (opcional)
+- `location_coordinates_longitude` TEXT - Longitude (opcional)
+- `location_timezone_offset` TEXT - Offset do fuso horário (opcional)
+- `location_timezone_description` TEXT - Descrição do fuso horário (opcional)
 
-- **credit_card** (1:1 com `users`)
-  - `id` INTEGER PK AUTOINCREMENT
-  - `user_id` INTEGER NOT NULL UNIQUE FK → `users(id)` ON DELETE CASCADE
-  - `cc_number` TEXT
+**Contato e Identificação:**
+- `email` TEXT - Email do usuário
+- `phone` TEXT - Telefone
+- `cell` TEXT - Celular
+- `nat` TEXT - Código ISO de 2 letras da nacionalidade
 
-- **subscription** (1:1 com `users`)
-  - `id` INTEGER PK AUTOINCREMENT
-  - `user_id` INTEGER NOT NULL UNIQUE FK → `users(id)` ON DELETE CASCADE
-  - `plan` TEXT
-  - `status` TEXT
-  - `payment_method` TEXT
-  - `term` TEXT
+**Login (dados não sensíveis):**
+- `login_username` TEXT - Nome de usuário
+- `login_password` TEXT - **Não utilizado/obsoleto** (campos sensíveis removidos)
+- `login_salt` TEXT - **Não utilizado/obsoleto**
+- `login_md5` TEXT - **Não utilizado/obsoleto**
+- `login_sha1` TEXT - **Não utilizado/obsoleto**
+- `login_sha256` TEXT - **Não utilizado/obsoleto**
+
+**Datas:**
+- `dob_date` TEXT - Data de nascimento (ISO 8601)
+- `dob_age` INTEGER - Idade
+- `registered_date` TEXT - Data de registro (ISO 8601)
+- `registered_age` INTEGER - Anos desde o registro
+
+**Documento de Identificação:**
+- `id_name` TEXT - Tipo de documento (ex: "SSN", "CPF", "TFN", "NINO") - pode ser NULL
+- `id_value` TEXT - Valor do documento - pode ser NULL
+
+**Fotos:**
+- `picture_large` TEXT - URL da imagem grande
+- `picture_medium` TEXT - URL da imagem média
+- `picture_thumbnail` TEXT - URL da miniatura
+
+**Metadados:**
+- `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP
+- `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP
+
+**Índices:**
+- `idx_users_email` - Índice no campo `email`
+- `idx_users_name_first` - Índice no campo `name_first`
+- `idx_users_name_last` - Índice no campo `name_last`
+- `idx_users_owner_id` - Índice no campo `owner_id` (para filtragem por usuário)
+
+**Triggers:**
+- `update_users_updated_at` - Atualiza automaticamente `updated_at` quando um registro é modificado
 
 ### Tabela de Autenticação
 
@@ -472,9 +492,12 @@ A autenticação utiliza uma tabela separada, independente das tabelas de domín
   - `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP
   - Índice: `idx_auth_users_email`
 
-Notas:
-- A tabela `auth_users` é usada por recursos de login/registro e não se relaciona com a tabela `users` de dados externos/CSV.
-- As operações CRUD de usuários (salvos a partir da API/CSV) atuam sobre `users` e suas tabelas 1:1 relacionadas.
+**Notas importantes:**
+- A tabela `auth_users` é usada por recursos de login/registro e **não se relaciona** com a tabela `users` de dados externos/CSV.
+- As operações CRUD de usuários (salvos a partir da API) atuam apenas sobre a tabela `users`.
+- O modelo foi **simplificado** e **desnormalizado** para refletir exatamente a estrutura da Random User API.
+- Todos os campos da Random User API são armazenados na mesma tabela (não há tabelas relacionadas como `employment`, `address`, `credit_card`, `subscription`).
+- Campos sensíveis de login (`password`, `salt`, `md5`, `sha1`, `sha256`) **não são mais usados** na resposta da API, mas ainda existem no banco por compatibilidade (podem ser NULL).
 
 ## 🔍 Funcionalidades Detalhadas
 
