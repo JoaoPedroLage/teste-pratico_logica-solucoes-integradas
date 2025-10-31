@@ -41,8 +41,9 @@ Aplicativo desenvolvido para atender todas as especificações do teste prático
 ### 1. ✅ Exibição de Página com Listagem de Usuários da API
 
 - Frontend: Aba "API Externa" com cards por usuário
-- Backend: Endpoint `GET /api/users/api?size=10` consome `https://randomuser.me/api/?results=<size>`
-- Dados no schema Random User: `name.first`, `name.last`, `email`, `location`, `picture`, `login.username`, etc.
+- Backend: Endpoint `GET /api/users/api?size=10&gender=male&nat=BR` consome `https://randomuser.me/api/?results=<size>&gender=<gender>&nat=<nat>`
+- Dados no schema Random User: estrutura completa com `name`, `location`, `email`, `login`, `dob`, `registered`, `phone`, `cell`, `id`, `picture`, `nat`
+- Filtros suportados: `gender` (male/female) e `nat` (código ISO de 2 letras)
 
 ### 2. ✅ Gravação de Dados em Arquivo CSV
 
@@ -58,7 +59,9 @@ Aplicativo desenvolvido para atender todas as especificações do teste prático
 ### 4. ✅ Tela de Consumo da API Disponível no Menu
 
 - Abas: "API Externa", "Usuários Salvos", "Pesquisar"
-- Buscar por quantidade simples e filtros suportados pela Random User API (gender/nat)
+- Buscar por quantidade simples (botão esquerdo) e filtros avançados (select com gender/nat à direita)
+- Filtros suportados pela Random User API: `gender` (male/female) e `nat` (nacionalidade)
+- Quando `nat` não é especificado, a nacionalidade é aleatória
 
 ### 5. ✅ Preservação de Integridade do CSV
 
@@ -66,30 +69,42 @@ Aplicativo desenvolvido para atender todas as especificações do teste prático
 
 ### 6. ✅ Pesquisa com Base em Múltiplos Campos
 
-- Busca em `name.first`, `name.last`, `email` (dot-notation)
-- Implementada no backend filtrando em memória para compatibilidade entre fontes
+- Busca em `name.first`, `name.last`, `email` (dot-notation) - padrão
+- Campos adicionais suportados: `login.username`, `location.city`, `location.state`, `location.country`, `phone`, `cell`, `nat`
+- Implementada no backend usando SQLite para busca eficiente
+- Suporta parâmetro `term` ou `q` para compatibilidade
 
 ## 📚 API Endpoints
 
-- `GET /api/users/api?size=10` → Busca na Random User API
-- `POST /api/users/save` → Salva em SQLite e CSV
-- `GET /api/users` → Lista todos usuários salvos
-- `GET /api/users/search?q=termo&fields=name.first,name.last,email` → Busca (dot-notation)
-- `GET /api/users/:id` → Busca por ID
-- `PUT /api/users/:id` → Atualiza
-- `DELETE /api/users/:id` → Remove
+- `GET /api/users/api?size=10&gender=male&nat=BR` → Busca na Random User API
+  - Parâmetros: `size` (opcional, padrão: 10), `gender` (opcional: male/female), `nat` (opcional: código ISO)
+- `POST /api/users/save` → Salva usuários em SQLite e CSV
+- `GET /api/users` → Lista todos usuários salvos (com `db_id`)
+- `GET /api/users/search?term=jennie&fields=name.first,name.last,email` → Busca com notação de ponto
+  - Parâmetros: `term` ou `q` (obrigatório), `fields` (opcional)
+- `GET /api/users/:id` → Busca usuário por ID (`db_id`)
+- `PUT /api/users/:id` → Atualiza usuário
+- `DELETE /api/users/:id` → Remove usuário
+- `GET /api/users/download/csv` → Download do arquivo CSV do usuário
 
-Campos sensíveis de `login` (password/salt/hashes) não são enviados ao frontend.
+**Nota de Segurança:** Campos sensíveis de `login` (`password`, `salt`, `md5`, `sha1`, `sha256`) **não são enviados** ao frontend em nenhum endpoint.
 
 ## 🔍 Pesquisa Multi-campo
 
-- Suportada em `name.first`, `name.last`, `email`
-- Backend aplica filtro em memória usando notação de ponto (compatível com dados CSV/SQLite e objetos)
+- Suportada em múltiplos campos: `name.first`, `name.last`, `email`, `login.username`, `location.city`, `location.state`, `location.country`, `phone`, `cell`, `nat`
+- Backend utiliza SQLite para busca eficiente com filtros LIKE
+- Usa notação de ponto (dot-notation) para compatibilidade com estrutura de dados aninhada
+- Parâmetros: `term` ou `q` (termo de busca) e `fields` (campos opcionais, padrão: `name.first,name.last,email`)
 
 ## 🗄️ Observações de Dados
 
-- `id` (número) é o identificador do registro salvo no backend
-- `id_info` contém o documento informativo (ex.: SSN) vindo da Random User API
+- `id` (número) é o identificador do registro salvo no backend (`db_id`)
+- O campo `id` na resposta da Random User API contém o documento informativo:
+  - `id.name`: Tipo de documento (ex: "SSN", "NINO", "CPF", "TFN", etc.)
+  - `id.value`: Valor do documento (pode ser `null` ou string vazia)
+- O campo `login` na resposta da API **não inclui** campos sensíveis (`password`, `salt`, `md5`, `sha1`, `sha256`) - removidos por segurança
+- O campo `postcode` pode ser string ou número dependendo do país
+- Campos opcionais: `coordinates`, `timezone`, `id` podem não estar presentes em todos os usuários
 
 As demais seções permanecem válidas. Consulte `docs/API.md` e `docs/ARQUITETURA.md` para detalhes alinhados ao novo schema.
 
@@ -225,11 +240,13 @@ npm run dev
 
 > **Nota**: Todos os endpoints (exceto `/api/users/api`) são protegidos e requerem um token de autenticação (`Authorization: Bearer <token>`) e o ID do usuário (`x-owner-id: <id>`) nos cabeçalhos.
 
-### GET `/api/users/api?size=10`
-Busca usuários da API externa `randomuser.me`.
+### GET `/api/users/api?size=10&gender=male&nat=BR`
+Busca usuários da API externa Random User API (`randomuser.me`).
 
 **Query Parameters:**
-- `size` (opcional): Quantidade de usuários (padrão: 10)
+- `size` (opcional): Quantidade de usuários (padrão: 10, máximo: 5000)
+- `gender` (opcional): Filtro por gênero (`male` ou `female`)
+- `nat` (opcional): Filtro por nacionalidade (ex: `BR`, `US`, `GB`). Códigos ISO de 2 letras.
 
 **Resposta:**
 ```json
@@ -237,14 +254,66 @@ Busca usuários da API externa `randomuser.me`.
   "success": true,
   "data": [
     {
-      "name": { "first": "Jennie", "last": "Nichols" },
-      "email": "jennie.nichols@example.com",
-      "..."
+      "gender": "male",
+      "name": {
+        "title": "Mr",
+        "first": "Fernando",
+        "last": "Pena"
+      },
+      "location": {
+        "street": {
+          "number": 9359,
+          "name": "The Grove"
+        },
+        "city": "Glasgow",
+        "state": "East Sussex",
+        "country": "United Kingdom",
+        "postcode": "PN5M 9DT",
+        "coordinates": {
+          "latitude": "-10.4606",
+          "longitude": "-51.6426"
+        },
+        "timezone": {
+          "offset": "-3:30",
+          "description": "Newfoundland"
+        }
+      },
+      "email": "fernando.pena@example.com",
+      "login": {
+        "uuid": "5b5ee55f-256d-4a08-8513-ffde11675492",
+        "username": "beautifulelephant958"
+      },
+      "dob": {
+        "date": "1998-11-09T00:36:46.061Z",
+        "age": 26
+      },
+      "registered": {
+        "date": "2019-11-13T09:45:04.394Z",
+        "age": 5
+      },
+      "phone": "017687 85114",
+      "cell": "07161 003251",
+      "id": {
+        "name": "NINO",
+        "value": "KG 38 32 23 G"
+      },
+      "picture": {
+        "large": "https://randomuser.me/api/portraits/men/91.jpg",
+        "medium": "https://randomuser.me/api/portraits/med/men/91.jpg",
+        "thumbnail": "https://randomuser.me/api/portraits/thumb/men/91.jpg"
+      },
+      "nat": "GB"
     }
   ],
   "count": 10
 }
 ```
+
+**Notas importantes:**
+- O campo `id` pode ter `name` e `value` como `null` ou vazios dependendo do usuário
+- O campo `login` **não inclui** `password`, `salt`, `md5`, `sha1`, `sha256` na resposta (removidos por segurança)
+- O campo `postcode` pode ser string ou número
+- Se `nat` não for especificado, a nacionalidade será aleatória
 
 ### POST `/api/users/save`
 Salva usuários no arquivo CSV.
@@ -259,12 +328,18 @@ Salva usuários no arquivo CSV.
 ### GET `/api/users`
 Lista todos os usuários salvos no CSV.
 
-### GET `/api/users/search?q=termo&fields=first_name,last_name,email`
-Busca usuários por critérios.
+### GET `/api/users/search?term=jennie&fields=name.first,name.last,email`
+Busca usuários por critérios usando notação de ponto.
 
 **Query Parameters:**
-- `q` (obrigatório): Termo de busca
-- `fields` (opcional): Campos para busca (padrão: first_name,last_name,email)
+- `term` ou `q` (obrigatório): Termo de busca
+- `fields` (opcional): Campos para busca separados por vírgula. Padrão: `name.first,name.last,email`
+  - Campos suportados: `name.first`, `name.last`, `email`, `login.username`, `location.city`, `phone`, `cell`, `nat`
+
+**Exemplo:**
+```
+GET /api/users/search?term=jennie&fields=name.first,name.last,email
+```
 
 ### GET `/api/users/:id`
 Busca um usuário específico por ID.
@@ -282,7 +357,19 @@ Atualiza um usuário.
 ```
 
 ### DELETE `/api/users/:id`
-Remove um usuário.
+Remove um usuário salvo.
+
+**Parâmetros:**
+- `id` (number): ID do usuário (`db_id`)
+
+### GET `/api/users/download/csv`
+Download do arquivo CSV do usuário (específico por `owner_id`).
+
+**Resposta:**
+- **Content-Type**: `text/csv`
+- **Content-Disposition**: `attachment; filename="users_<ownerId>.csv"`
+- Se o arquivo não existir ou estiver corrompido, gera CSV em memória a partir do banco de dados
+- Validação automática: filtra linhas vazias ou inválidas (apenas `csv_id` sem dados)
 
 > 📖 **Documentação completa da API**: Consulte [docs/API.md](./docs/API.md) para mais detalhes e exemplos.
 
@@ -464,7 +551,7 @@ A aplicação oferece uma experiência consistente e fluida em qualquer disposit
 
 ### Resiliência e Fallback da API Externa
 
-A aplicação implementa uma estratégia robusta de fallback para garantir que continue funcionando mesmo quando a API externa (`random-data-api.com`) está indisponível:
+A aplicação implementa uma estratégia robusta de fallback para garantir que continue funcionando mesmo quando a API externa Random User API (`randomuser.me`) está indisponível:
 
 **Problema comum:** Falhas de conexão, problemas de DNS (`EAI_AGAIN`, `ENOTFOUND`), ou indisponibilidade temporária da API externa podem impedir o funcionamento da aplicação.
 
@@ -495,6 +582,11 @@ A aplicação implementa uma estratégia robusta de fallback para garantir que c
 - ✅ Logs detalhados para diagnóstico quando ocorrem falhas
 
 **Observação:** Quando o fallback é ativado, você verá no console do backend uma mensagem: `⚠️ API externa indisponível. Usando dados mock como fallback.`
+
+**Endpoints da Random User API:**
+- URL base: `https://randomuser.me/api`
+- Parâmetros suportados: `results` (1-5000), `gender` (male/female), `nat` (código ISO)
+- Exemplo: `https://randomuser.me/api/?results=30&gender=male&nat=BR`
 
 ## 📝 Documentação Adicional
 

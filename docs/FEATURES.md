@@ -4,8 +4,10 @@
 
 ### 1. Consumo da API Externa
 - Endpoint: Random User API (`randomuser.me`)
-- Interface: Aba dedicada com cards por usuário (nome, email, nat, cidade)
-- Busca por quantidade e filtros oficiais (gender/nat)
+- Interface: Aba dedicada com cards por usuário (nome, email, nat, foto grande)
+- Busca por quantidade (botão esquerdo) e filtros avançados (select com gender/nat à direita)
+- Filtros suportados: `gender` (male/female) e `nat` (código ISO de 2 letras)
+- Se `nat` não for especificado, a nacionalidade é aleatória
 
 ### 2. Persistência Dual (SQLite + CSV)
 - Salva usuários em SQLite e CSV
@@ -20,8 +22,10 @@
 - Preserva integridade do CSV reescrevendo arquivo completo
 
 ### 5. Pesquisa Multi-campo (dot-notation)
-- Campos: `name.first`, `name.last`, `email`
-- Backend filtra em memória para compatibilidade entre fontes de dados
+- Campos padrão: `name.first`, `name.last`, `email`
+- Campos adicionais suportados: `login.username`, `location.city`, `location.state`, `location.country`, `phone`, `cell`, `nat`
+- Backend utiliza SQLite para busca eficiente com filtros LIKE
+- Parâmetros: `term` ou `q` (termo de busca) e `fields` (campos opcionais)
 
 ### 6. Cards unificados
 - Mesmo layout para "API Externa" e "Usuários Salvos"
