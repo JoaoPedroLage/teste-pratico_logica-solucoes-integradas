@@ -144,29 +144,23 @@ export class ApiService {
         lastError = error;
         console.error(`❌ Tentativa ${attempt + 1} falhou:`, error.message || error);
         
+        // Erros 4xx (client error) não devem ser tentados novamente nem usar fallback
+        // São erros de parâmetros inválidos, autenticação, etc.
         if (error.response && error.response.status >= 400 && error.response.status < 500) {
-          break;
-        }
-        
-        if (attempt === this.maxRetries - 1) {
-          if ((error.code === 'EAI_AGAIN' || error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED')) {
-            console.warn('⚠️ API externa indisponível. Usando dados mock como fallback.');
-            return this.generateMockUsers(size);
-          }
+          throw new Error(`Erro do cliente (${error.response.status}): ${error.response.data?.error || error.message || 'Parâmetros inválidos'}`);
         }
       }
     }
     
-    const dnsError = lastError?.code === 'EAI_AGAIN' || lastError?.code === 'ENOTFOUND';
-    throw new Error(
-      dnsError
-        ? 'Não foi possível resolver o endereço da API externa após múltiplas tentativas. Verifique sua conexão com a internet e as configurações de DNS.'
-        : `Falha ao buscar usuários da API após ${this.maxRetries} tentativas: ${lastError?.message || 'Erro desconhecido'}`
-    );
+    // Se todas as tentativas falharam (exceto 4xx), usa fallback com dados mock
+    console.warn('⚠️ API externa indisponível após múltiplas tentativas. Usando dados mock como fallback.');
+    console.warn(`Último erro: ${lastError?.message || lastError?.code || 'Erro desconhecido'}`);
+    return this.generateMockUsers(size);
   }
 
   /**
    * Busca um único usuário da Random User API
+   * Usa fallback automático se a API estiver indisponível
    */
   async fetchSingleUser(): Promise<User> {
     try {
@@ -182,8 +176,10 @@ export class ApiService {
       
       throw new Error('Resposta vazia ou inválida da API');
     } catch (error) {
-      console.error('Erro ao buscar usuário da API:', error);
-      throw new Error('Falha ao buscar usuário da API');
+      console.warn('⚠️ API externa indisponível. Usando dados mock como fallback.');
+      // Retorna um usuário mock como fallback
+      const mockUsers = this.generateMockUsers(1);
+      return mockUsers[0];
     }
   }
 }

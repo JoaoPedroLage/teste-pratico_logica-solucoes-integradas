@@ -558,30 +558,53 @@ A aplicação implementa uma estratégia robusta de fallback para garantir que c
 **Solução implementada:**
 
 1. **Retry Logic com Backoff Exponencial:**
-   - O sistema tenta conectar à API externa 3 vezes automaticamente
-   - Intervalos crescentes entre tentativas (1s, 2s, 4s)
+   - O sistema tenta conectar à API externa **3 vezes automaticamente**
+   - Intervalos crescentes entre tentativas: **1s, 2s, 4s** (backoff exponencial)
    - Evita sobrecarga e aumenta chances de sucesso em falhas temporárias
+   - Logs detalhados de cada tentativa para diagnóstico
 
 2. **Fallback Automático com Dados Mock:**
-   - Quando todas as tentativas falham, o sistema gera automaticamente dados mock de usuários
-   - Os dados mock seguem a mesma estrutura da API real
+   - Quando **todas as 3 tentativas falham**, o sistema **automaticamente** gera dados mock de usuários
+   - Os dados mock seguem a **mesma estrutura** da Random User API
+   - Funciona para: erros DNS (`EAI_AGAIN`, `ENOTFOUND`), timeouts, erros de conexão, erros 5xx
+   - **Não usa fallback** para erros 4xx (client errors - parâmetros inválidos, etc.)
    - A aplicação continua funcionando normalmente, permitindo que o usuário:
      - Visualize usuários gerados localmente
-     - Salve, edite e delete esses usuários no CSV
+     - Salve, edite e delete esses usuários no CSV/SQLite
      - Utilize todas as funcionalidades da aplicação
+   - Mensagem no console: `⚠️ API externa indisponível após múltiplas tentativas. Usando dados mock como fallback.`
 
 3. **Configuração de DNS Alternativo:**
    - Suporte para servidores DNS alternativos via variável de ambiente `DNS_SERVERS`
    - Útil quando o DNS local tem problemas
    - Exemplo: `DNS_SERVERS=8.8.8.8,8.8.4.4` (Google DNS)
+   - Configurado automaticamente no construtor do `ApiService`
 
 **Vantagens:**
-- ✅ Aplicação nunca fica completamente indisponível
-- ✅ Experiência do usuário preservada mesmo com problemas externos
-- ✅ Permite desenvolvimento e testes mesmo sem conexão com a API externa
-- ✅ Logs detalhados para diagnóstico quando ocorrem falhas
+- ✅ Aplicação **nunca fica completamente indisponível** (exceto para erros 4xx - client errors)
+- ✅ Experiência do usuário **preservada** mesmo com problemas externos
+- ✅ Permite **desenvolvimento e testes** mesmo sem conexão com a API externa
+- ✅ **Logs detalhados** para diagnóstico quando ocorrem falhas
+- ✅ Fallback **automático e transparente** - usuário não percebe a diferença
 
-**Observação:** Quando o fallback é ativado, você verá no console do backend uma mensagem: `⚠️ API externa indisponível. Usando dados mock como fallback.`
+**Comportamento do Fallback:**
+- ✅ **Ativado automaticamente** quando todas as 3 tentativas falham
+- ✅ Funciona para: erros DNS, timeouts, erros de conexão, erros 5xx do servidor
+- ❌ **Não funciona** para erros 4xx (parâmetros inválidos, etc.) - esses lançam exceção
+- 📝 Mensagem no console: `⚠️ API externa indisponível após múltiplas tentativas. Usando dados mock como fallback.`
+
+**Exemplo de erros que acionam fallback:**
+- `EAI_AGAIN` - DNS timeout
+- `ENOTFOUND` - DNS não encontrado
+- `ECONNREFUSED` - Conexão recusada
+- `ETIMEDOUT` - Timeout de conexão
+- `500 Internal Server Error` - Erro do servidor
+- `503 Service Unavailable` - Serviço indisponível
+
+**Exemplo de erros que NÃO acionam fallback:**
+- `400 Bad Request` - Parâmetros inválidos
+- `404 Not Found` - Recurso não encontrado
+- `401 Unauthorized` - Não autorizado
 
 **Endpoints da Random User API:**
 - URL base: `https://randomuser.me/api`
